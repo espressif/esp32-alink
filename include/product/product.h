@@ -13,16 +13,16 @@ extern "C" {
  *  @{
  */
 
-#define PRODUCT_SN_LEN			(64 + 1)
-#define PRODUCT_MODEL_LEN		(80 + 1)
-#define PRODUCT_KEY_LEN			(20 + 1)
-#define PRODUCT_SECRET_LEN		(40 + 1)
-#define PRODUCT_UUID_LEN		(32 + 1)
+#define PRODUCT_SN_LEN          (64 + 1)
+#define PRODUCT_MODEL_LEN       (80 + 1)
+#define PRODUCT_KEY_LEN         (20 + 1)
+#define PRODUCT_SECRET_LEN      (40 + 1)
+#define PRODUCT_UUID_LEN        (32 + 1)
 #define PRODUCT_VERSION_LEN     (16 + 1)
 #define PRODUCT_NAME_LEN        (32 + 1)
 #define PRODUCT_ASR_APP_KEY_LEN (64)
 
-#define PRODUCT_CID_LEN			(64 + 1)
+#define PRODUCT_CID_LEN         (64 + 1)
 typedef struct alink_product {
     /* optional */
     char name[PRODUCT_NAME_LEN];
@@ -37,7 +37,7 @@ typedef struct alink_product {
     char secret[PRODUCT_SECRET_LEN];
     char key_sandbox[PRODUCT_KEY_LEN];
     char secret_sandbox[PRODUCT_SECRET_LEN];
-}alink_product_t;
+} alink_product_t;
 
 /**
  * @brief Get the product version string.

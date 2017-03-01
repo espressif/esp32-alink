@@ -70,7 +70,6 @@ typedef int32_t alink_err_t;
 #define ALINK_CHIPID "esp32"
 #define MODULE_NAME "ESP-WROOM-32"
 
-
 #define ALINK_DATA_LEN 512
 typedef enum {
     ALINK_EVENT_CLOUD_CONNECTED = 0,

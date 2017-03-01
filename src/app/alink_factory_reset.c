@@ -78,9 +78,9 @@ alink_err_t alink_key_scan(TickType_t ticks_to_wait)
             press_key = pdFALSE;
             lift_key = pdFALSE;
             if (backup_time > 3000000){
-                return ALINK_OK;
-            }else{
                 PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[1], PIN_FUNC_GPIO);
+            }else{
+                return ALINK_OK;
             }
         }
     }

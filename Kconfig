@@ -1,9 +1,14 @@
-menu "Alink config"
+menuconfig ALINK_V20_ENABLE
+    bool "Enable alink_V2.0 function"
+    default n
+    help
+       If the option is enabled, "alink_V20" works.
 
 choice LOG_ALINK_LEVEL
-   bool "Default log verbosity"
-   default LOG_ALINK_LEVEL_INFO
-   help
+    bool "Default log verbosity"
+    default LOG_ALINK_LEVEL_INFO
+    depends on ALINK_V20_ENABLE
+    help
        Specify how much output to see in logs by default.
        Note that this setting limits which log statements
        are compiled into the program. So setting this to, say,
@@ -32,29 +37,33 @@ config LOG_ALINK_LEVEL
     default 3 if LOG_ALINK_LEVEL_INFO
     default 4 if LOG_ALINK_LEVEL_DEBUG
     default 5 if LOG_ALINK_LEVEL_VERBOSE
+    depends on ALINK_V20_ENABLE
 
 config ALINK_PASSTHROUGH
     bool "Switch the data transmission mode to passthrough"
     default 0
+    depends on ALINK_V20_ENABLE
     help
         Switch the data transmission mode to passthrough.
 
 config ALINK_RESET_KEY_IO
-	int "Configure alink to restore the factory-set GPIO"
-	default 0
-	help
-		Configure alink to restore the factory-set GPIO
+	  int "Configure alink to restore the factory-set GPIO"
+	  default 0
+    depends on ALINK_V20_ENABLE
+	  help
+		    Configure alink to restore the factory-set GPIO
 
 config WIFI_WAIT_TIME
     int "the connection router maximum latency unit is seconds"
     default 60
+    depends on ALINK_V20_ENABLE
     help
         the connection router maximum latency unit is seconds
 
 config ALINK_TASK_PRIOTY
     int "Configure the priority of all alink tasks"
     default 4
+    depends on ALINK_V20_ENABLE
     help
         Configure the priority of all alink tasks
 
-endmenu
