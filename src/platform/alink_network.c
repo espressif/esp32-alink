@@ -29,13 +29,14 @@ static alink_err_t network_create_socket( pplatform_netaddr_t netaddr, int type,
     if (NULL == netaddr->host) {
         ip = htonl(INADDR_ANY);
     } else {
+        ALINK_LOGI("alink server host: %s", netaddr->host);
         hp = gethostbyname(netaddr->host);
         ALINK_ERROR_CHECK(hp == NULL, ALINK_ERR, "gethostbyname ret:%p", hp);
 
         struct ip4_addr *ip4_addr = (struct ip4_addr *)hp->h_addr;
         char ipaddr_tmp[64] = {0};
         sprintf(ipaddr_tmp, IPSTR, IP2STR(ip4_addr));
-        ALINK_LOGI("alink server host: %s, ip: %s\n", netaddr->host, ipaddr_tmp);
+        ALINK_LOGI("ip: %s", ipaddr_tmp);
         ip = inet_addr(ipaddr_tmp);
     }
 

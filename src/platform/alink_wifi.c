@@ -102,6 +102,7 @@ int platform_sys_net_is_ready(void)
     return sys_net_is_ready;
 }
 
+alink_err_t alink_event_send(alink_event_t event);
 static SemaphoreHandle_t xSemConnet = NULL;
 static alink_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -114,10 +115,12 @@ static alink_err_t event_handler(void *ctx, system_event_t *event)
         sys_net_is_ready = ALINK_TRUE;
         ALINK_LOGI("SYSTEM_EVENT_STA_GOT_IP");
         xSemaphoreGive(xSemConnet);
+        alink_event_send(ALINK_EVENT_STA_GOT_IP);
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
         ALINK_LOGI("SYSTEM_EVENT_STA_DISCONNECTED");
         sys_net_is_ready = ALINK_FALSE;
+        alink_event_send(ALINK_EVENT_STA_DISCONNECTED);
         ESP_ERROR_CHECK( esp_wifi_connect() );
         break;
     default:

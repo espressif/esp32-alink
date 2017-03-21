@@ -134,7 +134,7 @@ static alink_err_t cloud_set_device_data(_IN_ char *json_buffer)
     platform_mutex_lock(xSemDownCmd);
     ALINK_PARAM_CHECK(json_buffer == NULL);
     alink_event_send(ALINK_EVENT_SET_DEVICE_DATA);
-    alink_err_t ret = ALINK_ERR;
+    alink_err_t ret = ALINK_OK;
     int size = strlen(json_buffer) + 1;
     char *q_data = (char *)malloc(size);
     if (size > ALINK_DATA_LEN) ALINK_LOGW("json_buffer len:%d", size);
@@ -192,6 +192,7 @@ static alink_err_t alink_trans_init()
     xQueueUpCmd      = xQueueCreate(DOWN_CMD_QUEUE_NUM, sizeof(char *));
     xQueueDownCmd    = xQueueCreate(UP_CMD_QUEUE_NUM, sizeof(char *));
     alink_set_loglevel(ALINK_LL_DEBUG);
+   // alink_set_loglevel(ALINK_LL_INFO);
 
     alink_register_callback(ALINK_CLOUD_CONNECTED, &cloud_connected);
     alink_register_callback(ALINK_CLOUD_DISCONNECTED, &cloud_disconnected);

@@ -87,6 +87,8 @@ alink_err_t alink_connect_ap()
         }
     }
 
+    alink_err_t alink_event_send(alink_event_t event);
+    alink_event_send(ALINK_EVENT_CONFIG_NETWORK);
     ALINK_LOGI("*********************************");
     ALINK_LOGI("*    ENTER SAMARTCONFIG MODE    *");
     ALINK_LOGI("*********************************");

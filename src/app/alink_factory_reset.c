@@ -55,6 +55,11 @@ void alink_key_init(uint32_t key_gpio_pin)
     gpio_isr_handler_add(key_gpio_pin, gpio_isr_handler, (void*) key_gpio_pin);
 }
 
+typedef enum {
+    ALINK_KEY_LONG_PRESS = 1,
+    ALINK_KEY_SHORT_PRESS,
+} alink_key_t;
+
 alink_err_t alink_key_scan(TickType_t ticks_to_wait)
 {
     uint32_t io_num;
@@ -77,10 +82,10 @@ alink_err_t alink_key_scan(TickType_t ticks_to_wait)
         if (press_key & lift_key) {
             press_key = pdFALSE;
             lift_key = pdFALSE;
-            if (backup_time > 3000000){
-                PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[1], PIN_FUNC_GPIO);
-            }else{
-                return ALINK_OK;
+            if (backup_time > 3000000) {
+                return ALINK_KEY_LONG_PRESS;
+            } else {
+                return ALINK_KEY_SHORT_PRESS;
             }
         }
     }
@@ -90,30 +95,36 @@ void factory_reset(void* arg)
 {
     alink_key_init(ALINK_RESET_KEY_IO);
     alink_err_t ret = alink_key_scan(portMAX_DELAY);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, vTaskDelete(NULL), "alink_key_scan ret:%d", ret);
-    /* clear ota data  */
-    alink_err_t err;
-    esp_partition_t find_partition;
-    memset(&find_partition, 0, sizeof(esp_partition_t));
-    find_partition.type = ESP_PARTITION_TYPE_DATA;
-    find_partition.subtype = ESP_PARTITION_SUBTYPE_DATA_OTA;
-
-    const esp_partition_t *partition = esp_partition_find_first(find_partition.type, find_partition.subtype, NULL);
-    if (partition == NULL) {
-        ALINK_LOGE("nvs_erase_key partition:%p", partition);
-        vTaskDelete(NULL);
-    }
-
-    err = esp_partition_erase_range(partition, 0, partition->size);
-    if (err != ALINK_OK) {
-        ALINK_LOGE("esp_partition_erase_range ret:%d", err);
-        vTaskDelete(NULL);
-    }
+    ALINK_ERROR_CHECK(ret == ALINK_ERR, vTaskDelete(NULL), "alink_key_scan ret:%d", ret);
 
     alink_erase_wifi_config();
-    ALINK_LOGI("reset user account binding");
-    alink_factory_reset();
-    ALINK_LOGI("factory_reset is finsh, The system is about to be restarted");
+    /* clear ota data  */
+    if (ret == ALINK_KEY_LONG_PRESS) {
+        ALINK_LOGI("*********************************");
+        ALINK_LOGI("*          FACTORY RESET        *");
+        ALINK_LOGI("*********************************");
+        alink_err_t err;
+        esp_partition_t find_partition;
+        memset(&find_partition, 0, sizeof(esp_partition_t));
+        find_partition.type = ESP_PARTITION_TYPE_DATA;
+        find_partition.subtype = ESP_PARTITION_SUBTYPE_DATA_OTA;
+
+        const esp_partition_t *partition = esp_partition_find_first(find_partition.type, find_partition.subtype, NULL);
+        if (partition == NULL) {
+            ALINK_LOGE("nvs_erase_key partition:%p", partition);
+            vTaskDelete(NULL);
+        }
+
+        err = esp_partition_erase_range(partition, 0, partition->size);
+        if (err != ALINK_OK) {
+            ALINK_LOGE("esp_partition_erase_range ret:%d", err);
+            vTaskDelete(NULL);
+        }
+        ALINK_LOGI("reset user account binding");
+        alink_factory_reset();
+    }
+
+    ALINK_LOGI("The system is about to be restarted");
     esp_restart();
     vTaskDelete(NULL);
 }

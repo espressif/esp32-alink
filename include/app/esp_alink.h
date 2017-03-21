@@ -45,8 +45,12 @@ typedef int32_t alink_err_t;
 #define _INOUT_OPT_     /**< indicate that this is a optional io parameter. */
 #endif
 
+#ifndef CONFIG_LOG_ALINK_LEVEL
+#define CONFIG_LOG_ALINK_LEVEL 3
+#endif
 #undef LOG_LOCAL_LEVEL
 #define LOG_LOCAL_LEVEL CONFIG_LOG_ALINK_LEVEL
+
 
 #ifdef CONFIG_ALINK_PASSTHROUGH
 #define ALINK_PASSTHROUGH
@@ -62,6 +66,17 @@ typedef int32_t alink_err_t;
 #define ALINK_PARAM_CHECK(con) if(con) {ALINK_LOGE("Parameter error, "); perror(__func__); assert(0);}
 
 /* alink main */
+#ifndef CONFIG_WIFI_WAIT_TIME
+#define CONFIG_WIFI_WAIT_TIME 60
+#endif
+#ifndef CONFIG_ALINK_RESET_KEY_IO
+#define CONFIG_ALINK_RESET_KEY_IO 0
+#endif
+#ifndef CONFIG_ALINK_TASK_PRIOTY
+#define CONFIG_ALINK_TASK_PRIOTY 6
+#endif
+
+
 #define WIFI_WAIT_TIME      (CONFIG_WIFI_WAIT_TIME * 1000)
 #define ALINK_RESET_KEY_IO  CONFIG_ALINK_RESET_KEY_IO
 #define DEFAULU_TASK_PRIOTY CONFIG_ALINK_TASK_PRIOTY
@@ -77,6 +92,9 @@ typedef enum {
     ALINK_EVENT_GET_DEVICE_DATA,
     ALINK_EVENT_SET_DEVICE_DATA,
     ALINK_EVENT_POST_CLOUD_DATA,
+    ALINK_EVENT_STA_GOT_IP,
+    ALINK_EVENT_STA_DISCONNECTED,
+    ALINK_EVENT_CONFIG_NETWORK,
 } alink_event_t;
 typedef alink_err_t (*alink_event_cb_t)(alink_event_t event);
 int esp_alink_event_init(_IN_ alink_event_cb_t cb);
