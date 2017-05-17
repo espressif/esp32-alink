@@ -14,22 +14,50 @@
 
 static platform_awss_recv_80211_frame_cb_t g_sniffer_cb = NULL;
 static const char *TAG = "alink_wifi";
-
-//一键配置超时时间, 建议超时时间1-3min, APP侧一键配置1min超时
+/**
+ * @brief Get timeout interval, in millisecond, of per awss.
+ *
+ * @param None.
+ * @return The timeout interval.
+ * @see None.
+ * @note The recommended value is 60,000ms.
+ */
 int platform_awss_get_timeout_interval_ms(void)
 {
-    return 60 * 1000;
+    return 30000;
 }
 
-//一键配置每个信道停留时间, 建议200ms-400ms
+/**
+ * @brief Get timeout interval in millisecond to connect the default SSID if awss timeout happens.
+ *
+ * @param None.
+ * @return The timeout interval.
+ * @see None.
+ * @note The recommended value is 0ms, which mean forever.
+ */
+int platform_awss_get_connect_default_ssid_timeout_interval_ms(void)
+{
+    return 30000;
+}
+
+/**
+ * @brief Get time length, in millisecond, of per channel scan.
+ *
+ * @param None.
+ * @return The timeout interval.
+ * @see None.
+ * @note None. The recommended value is between 200ms and 400ms.
+ */
 int platform_awss_get_channelscan_interval_ms(void)
 {
-    return 200;
+    return 100;
 }
+
+
 
 //wifi信道切换，信道1-13
 void platform_awss_switch_channel(char primary_channel,
-                                  char secondary_channel, char bssid[ETH_ALEN])
+                                  char secondary_channel, uint8_t bssid[ETH_ALEN])
 {
     ESP_ERROR_CHECK(esp_wifi_set_channel(primary_channel, secondary_channel));
     //ret = system(buf);
@@ -121,7 +149,10 @@ static alink_err_t event_handler(void *ctx, system_event_t *event)
         ALINK_LOGI("SYSTEM_EVENT_STA_DISCONNECTED");
         sys_net_is_ready = ALINK_FALSE;
         alink_event_send(ALINK_EVENT_STA_DISCONNECTED);
-        ESP_ERROR_CHECK( esp_wifi_connect() );
+        int ret = esp_wifi_connect();
+        if (ret != ESP_OK) {
+            ALINK_LOGE("esp_wifi_connect, ret: %d", ret);
+        }
         break;
     default:
         break;
@@ -145,11 +176,11 @@ int platform_awss_connect_ap(
         esp_event_loop_set_cb(event_handler, NULL);
     }
 
+    ESP_ERROR_CHECK( esp_wifi_stop() );
     ESP_ERROR_CHECK( esp_wifi_get_config(WIFI_IF_STA, &wifi_config) );
     memcpy(wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
     memcpy(wifi_config.sta.password, passwd, sizeof(wifi_config.sta.password));
     ALINK_LOGI("ap ssid: %s, password: %s", wifi_config.sta.ssid, wifi_config.sta.password);
-
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
     ESP_ERROR_CHECK( esp_wifi_start() );
@@ -161,4 +192,303 @@ int platform_awss_connect_ap(
     return ALINK_OK;
 }
 
+/**
+ * @brief send 80211 raw frame in current channel with basic rate(1Mbps)
+ *
+ * @param[in] type @n see enum platform_awss_frame_type, currently only FRAME_BEACON
+ *                      FRAME_PROBE_REQ is used
+ * @param[in] buffer @n 80211 raw frame, include complete mac header & FCS field
+ * @param[in] len @n 80211 raw frame length
+ * @return
+   @verbatim
+   =  0, send success.
+   = -1, send failure.
+   = -2, unsupported.
+   @endverbatim
+ * @see None.
+ * @note awss use this API send raw frame in wifi monitor mode & station mode
+ */
 
+static void print_hex(uint8_t *buf, size_t len)
+{
+    printf("len: %d, buffer:\n", len);
+    for (int i = 0; i < len; ++i) {
+        printf("%02x%s", buf[i], (i + 1) % 16 ? ", " : ",\n");
+    }
+    printf("\n");
+}
+
+int platform_wifi_send_80211_raw_frame(_IN_ enum platform_awss_frame_type type,
+                                       _IN_ uint8_t *buffer, _IN_ int len)
+{
+    ALINK_PARAM_CHECK(!buffer);
+    return -2;
+    // print_hex(buffer, len);
+    // ALINK_LOGI("====== start platform_wifi_send_80211_raw_frame ======");
+    // int ret = 0;
+    // ret = esp_wifi_freedom_tx(ESP_IF_WIFI_STA, buffer, len);
+    // ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_freedom_tx, ret: %d", ret);
+    // ALINK_LOGI("====== end platform_wifi_send_80211_raw_frame ======");
+    // return ALINK_OK;
+}
+
+/**
+ * @brief enable/disable filter specific management frame in wifi station mode
+ *
+ * @param[in] filter_mask @n see mask macro in enum platform_awss_frame_type,
+ *                      currently only FRAME_PROBE_REQ_MASK & FRAME_BEACON_MASK is used
+ * @param[in] vendor_oui @n oui can be used for precise frame match, optional
+ * @param[in] callback @n see platform_wifi_mgnt_frame_cb_t, passing 80211
+ *                      frame or ie to callback. when callback is NULL
+ *                      disable sniffer feature, otherwise enable it.
+ * @return
+   @verbatim
+   =  0, success
+   = -1, fail
+   = -2, unsupported.
+   @endverbatim
+ * @see None.
+ * @note awss use this API to filter specific mgnt frame in wifi station mode
+ */
+
+int platform_wifi_enable_mgnt_frame_filter(
+    _IN_ uint32_t filter_mask,
+    _IN_OPT_ uint8_t vendor_oui[3],
+    _IN_ platform_wifi_mgnt_frame_cb_t callback)
+{
+    return -2;
+    // ALINK_LOGI("====== start platform_wifi_enable_mgnt_frame_filter ======");
+    // int ret = 0;
+    // ret = esp_wifi_enable_mgnt_frame_filter(filter_mask, vendor_oui, callback);
+    // ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_enable_mgnt_frame_filter, ret: %d", ret);
+    // ALINK_LOGI("====== end platform_wifi_enable_mgnt_frame_filter ======");
+    // return ALINK_OK;
+}
+
+
+/**
+ * @brief launch a wifi scan operation
+ *
+ * @param[in] cb @n pass ssid info(scan result) to this callback one by one
+ * @return 0 for wifi scan is done, otherwise return -1
+ * @see None.
+ * @note
+ *      This API should NOT exit before the invoking for cb is finished.
+ *      This rule is something like the following :
+ *      platform_wifi_scan() is invoked...
+ *      ...
+ *      for (ap = first_ap; ap <= last_ap; ap = next_ap){
+ *        cb(ap)
+ *      }
+ *      ...
+ *      platform_wifi_scan() exit...
+ */
+int platform_wifi_scan(platform_wifi_scan_result_cb_t cb)
+{
+    uint16_t wifi_ap_num = 0;
+    wifi_ap_record_t *ap_info = NULL;
+
+    wifi_scan_config_t scan_config;
+    memset(&scan_config, 0, sizeof(scan_config));
+    ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&wifi_ap_num));
+
+    ALINK_LOGI("ap number: %d", wifi_ap_num);
+    ap_info = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * wifi_ap_num);
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&wifi_ap_num, ap_info));
+
+    for (int i = 0; i < wifi_ap_num; ++i) {
+        cb((char *)ap_info[i].ssid, (uint8_t *)ap_info[i].bssid, ap_info[i].authmode, AWSS_ENC_TYPE_INVALID,
+           ap_info[i].primary, ap_info[i].rssi, 1);
+    }
+
+    ESP_ERROR_CHECK(esp_wifi_scan_stop());
+    free(ap_info);
+    return ALINK_OK;
+}
+
+#define AES_BLOCK_SIZE 16
+/**
+ * @brief initialize AES struct.
+ *
+ * @param[in] key:
+ * @param[in] iv:
+ * @param[in] dir: AES_ENCRYPTION or AES_DECRYPTION
+ * @return AES128_t
+   @verbatim None
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+#include "mbedtls/aes.h"
+typedef struct {
+    mbedtls_aes_context ctx;
+    uint8_t iv[16];
+} platform_aes_t;
+
+p_aes128_t platform_aes128_init(
+    _IN_ const uint8_t* key,
+    _IN_ const uint8_t* iv,
+    _IN_ AES_DIR_t dir)
+{
+    ALINK_PARAM_CHECK(!key);
+    ALINK_PARAM_CHECK(!iv);
+
+    alink_err_t ret = 0;
+    platform_aes_t *p_aes128 = NULL;
+    p_aes128 = (platform_aes_t*)calloc(1, sizeof(platform_aes_t));
+    ALINK_ERROR_CHECK(!p_aes128, NULL, "calloc");
+
+    mbedtls_aes_init(&p_aes128->ctx);
+    if (dir == PLATFORM_AES_ENCRYPTION) {
+        ret = mbedtls_aes_setkey_enc(&p_aes128->ctx, key, 128);
+    } else {
+        ret = mbedtls_aes_setkey_dec(&p_aes128->ctx, key, 128);
+    }
+
+    if (ret != ALINK_OK) free(p_aes128);
+    ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "mbedtls_aes_setkey_enc");
+
+    memcpy(p_aes128->iv, iv, 16);
+    return (p_aes128_t *)p_aes128;
+}
+
+/**
+ * @brief release AES struct.
+ *
+ * @param[in] aes:
+ * @return
+   @verbatim
+     = 0: succeeded
+     = -1: failed
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+int platform_aes128_destroy(_IN_ p_aes128_t aes)
+{
+    ALINK_PARAM_CHECK(!aes);
+    mbedtls_aes_free(&((platform_aes_t *)aes)->ctx);
+    free(aes);
+    return ALINK_OK;
+}
+
+/**
+ * @brief encrypt data with aes (cbc/128bit key).
+ *
+ * @param[in] aes: AES handler
+ * @param[in] src: plain data
+ * @param[in] blockNum: plain data number of 16 bytes size
+ * @param[out] dst: cipher data
+ * @return
+   @verbatim
+     = 0: succeeded
+     = -1: failed
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+int platform_aes128_cbc_encrypt(
+    _IN_ p_aes128_t aes,
+    _IN_ const void *src,
+    _IN_ size_t blockNum,
+    _OUT_ void *dst )
+{
+    ALINK_PARAM_CHECK(!aes);
+    ALINK_PARAM_CHECK(!src);
+    ALINK_PARAM_CHECK(!dst);
+
+    alink_err_t ret = 0;
+    platform_aes_t *p_aes128 = (platform_aes_t *)aes;
+    for (int i = 0; i < blockNum; ++i) {
+        ret = mbedtls_aes_crypt_cbc(&p_aes128->ctx, MBEDTLS_AES_ENCRYPT, AES_BLOCK_SIZE,
+                                    &p_aes128->iv, src, dst);
+        src += 16;
+        dst += 16;
+    }
+    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "mbedtls_aes_crypt_cbc, ret: %d", ret);
+    return ALINK_OK;
+}
+
+/**
+ * @brief decrypt data with aes (cbc/128bit key).
+ *
+ * @param[in] aes: AES handler
+ * @param[in] src: cipher data
+ * @param[in] blockNum: plain data number of 16 bytes size
+ * @param[out] dst: plain data
+ * @return
+   @verbatim
+     = 0: succeeded
+     = -1: failed
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+int platform_aes128_cbc_decrypt(
+    _IN_ p_aes128_t aes,
+    _IN_ const void *src,
+    _IN_ size_t blockNum,
+    _OUT_ void *dst )
+{
+    ALINK_PARAM_CHECK(!aes);
+    ALINK_PARAM_CHECK(!src);
+    ALINK_PARAM_CHECK(!dst);
+
+    alink_err_t ret = 0;
+    platform_aes_t *p_aes128 = (platform_aes_t *)aes;
+
+    for (int i = 0; i < blockNum; ++i) {
+        ret = mbedtls_aes_crypt_cbc(&p_aes128->ctx, MBEDTLS_AES_DECRYPT, AES_BLOCK_SIZE,
+                                    &p_aes128->iv, src, dst);
+        src += 16;
+        dst += 16;
+    }
+
+    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR,
+                      "mbedtls_aes_crypt_cbc, ret: %d, blockNum: %d", ret, blockNum);
+    return ALINK_OK;
+}
+
+/**
+ * @brief get the information of the connected AP.
+ *
+ * @param[out] ssid: array to store ap ssid. It will be null if ssid is not required.
+ * @param[out] passwd: array to store ap password. It will be null if ap password is not required.
+ * @param[out] bssid: array to store ap bssid. It will be null if bssid is not required.
+ * @return
+   @verbatim
+     = 0: succeeded
+     = -1: failed
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+
+extern alink_err_t alink_read_wifi_config(_OUT_ wifi_config_t *wifi_config);
+
+int platform_wifi_get_ap_info(
+    _OUT_ char ssid[PLATFORM_MAX_SSID_LEN],
+    _OUT_ char passwd[PLATFORM_MAX_PASSWD_LEN],
+    _OUT_ uint8_t bssid[ETH_ALEN])
+{
+    alink_err_t ret = 0;
+    wifi_ap_record_t ap_info;
+    memset(&ap_info, 0, sizeof(wifi_ap_record_t));
+    ESP_ERROR_CHECK(esp_wifi_sta_get_ap_info(&ap_info));
+
+    wifi_config_t wifi_config;
+    ret = alink_read_wifi_config(&wifi_config);
+    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_read_wifi_config");
+    if (!memcmp(ap_info.ssid, wifi_config.ap.ssid, strlen((char *)ap_info.ssid))) {
+        if (passwd) memcpy(passwd, wifi_config.ap.password, PLATFORM_MAX_PASSWD_LEN);
+    } else {
+        ALINK_LOGW("ap_info.ssid: %s, wifi_config.ssid: %s", ap_info.ssid, wifi_config.ap.ssid);
+        if (passwd)  memset(passwd, 0, PLATFORM_MAX_PASSWD_LEN);
+    }
+
+    if (ssid) memcpy(ssid, ap_info.ssid, PLATFORM_MAX_SSID_LEN);
+    if (bssid) memcpy(bssid, ap_info.bssid, ETH_ALEN);
+
+    return ALINK_OK;
+}

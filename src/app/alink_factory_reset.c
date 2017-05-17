@@ -91,10 +91,19 @@ alink_err_t alink_key_scan(TickType_t ticks_to_wait)
     }
 }
 
+int activate_button_pressed(void);
 void factory_reset(void* arg)
 {
     alink_key_init(ALINK_RESET_KEY_IO);
-    alink_err_t ret = alink_key_scan(portMAX_DELAY);
+    alink_err_t ret = 0;
+    while (1) {
+        ret = alink_key_scan(portMAX_DELAY);
+        ALINK_ERROR_CHECK(ret == ALINK_ERR, vTaskDelete(NULL), "alink_key_scan ret:%d", ret);
+        ret = activate_button_pressed();
+        // ALINK_ERROR_CHECK(ret != ALINK_OK, vTaskDelete(NULL), "activate_button_pressed :%d", ret);
+    }
+
+    ret = alink_key_scan(portMAX_DELAY);
     ALINK_ERROR_CHECK(ret == ALINK_ERR, vTaskDelete(NULL), "alink_key_scan ret:%d", ret);
 
     alink_erase_wifi_config();
@@ -128,3 +137,66 @@ void factory_reset(void* arg)
     esp_restart();
     vTaskDelete(NULL);
 }
+
+#if 0
+typedef enum {
+    CONFIG_NETWORK_MODE,
+    FACTORY_RESET_MODE,
+    ACTIVATE_MODE,
+} event;
+
+alink_err_t alink_event_send(alink_event_t event)
+{
+    if (xQueueEvent == NULL)
+        xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
+    if (xQueueSend(xQueueEvent, &event, 0) != pdTRUE) {
+        ALINK_LOGE("xQueueSendToBack fail!");
+        return ALINK_ERR;
+    }
+    return ALINK_OK;
+}
+
+alink_err_t alink_factory_reset()
+{
+    /* clear ota data  */
+    ALINK_LOGI("*********************************");
+    ALINK_LOGI("*          FACTORY RESET        *");
+    ALINK_LOGI("*********************************");
+    alink_err_t err;
+    esp_partition_t find_partition;
+    memset(&find_partition, 0, sizeof(esp_partition_t));
+    find_partition.type = ESP_PARTITION_TYPE_DATA;
+    find_partition.subtype = ESP_PARTITION_SUBTYPE_DATA_OTA;
+
+    const esp_partition_t *partition = esp_partition_find_first(find_partition.type, find_partition.subtype, NULL);
+    ALINK_ERROR_CHECK(partition == NULL, ALINK_ERR, "nvs_erase_key partition:%p", partition);
+
+    err = esp_partition_erase_range(partition, 0, partition->size);
+    ALINK_ERROR_CHECK(partition == NULL, ALINK_ERR, "nvs_erase_key partition:%p", partition);
+
+    if (err != ALINK_OK) {
+        ALINK_LOGE("esp_partition_erase_range ret:%d", err);
+        vTaskDelete(NULL);
+    }
+    ALINK_LOGI("reset user account binding");
+    alink_factory_reset();
+
+    ALINK_LOGI("The system is about to be restarted");
+    esp_restart();
+}
+
+alink_err_t alink_config_network()
+{
+    int ret = 0;
+    ALINK_LOGI("clear wifi config");
+    ret = alink_erase_wifi_config();
+    ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "alink_erase_wifi_config");
+    ALINK_LOGI("The system is about to be restarted");
+    esp_restart();
+    return ALINK_OK;
+}
+
+
+    vTaskDelete(NULL);
+}
+#endif

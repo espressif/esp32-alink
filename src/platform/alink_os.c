@@ -90,6 +90,10 @@ void platform_mutex_destroy(_IN_ void *mutex)
 
 void platform_mutex_lock(_IN_ void *mutex)
 {
+    if (mutex == NULL) {
+        ALINK_LOGE("----------platform_mutex_lock mutex == NULL-----------------");
+        return ;
+    }
     //if can not get the mux,it will wait all the time
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreTake(mutex, portMAX_DELAY);
@@ -97,6 +101,10 @@ void platform_mutex_lock(_IN_ void *mutex)
 
 void platform_mutex_unlock(_IN_ void *mutex)
 {
+    if (mutex == NULL) {
+        ALINK_LOGE("----------platform_mutex_unlock mutex == NULL-----------------");
+        return ;
+    }
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreGive(mutex);
 }
@@ -167,6 +175,9 @@ int platform_thread_get_stack_size(_IN_ const char *thread_name)
     }  else if (0 == strcmp(thread_name, "wsf_receive_worker")) {
         ALINK_LOGD("get wsf_receive_worker");
         return 0x800;
+    }  else if (0 == strcmp(thread_name, "alcs_thread")) {
+        ALINK_LOGD("get alcs_thread");
+        return 0x800;
     } else {
         ALINK_LOGE("get othrer thread: %s", thread_name);
         return 0x800;
@@ -234,6 +245,12 @@ void platform_thread_exit(_IN_ void *thread)
 
 
 /************************ config ************************/
+const char *platform_get_storage_directory(void)
+{
+    ALINK_LOGE("------------------platform_get_storage_directory--------------------");
+    return NULL;
+}
+
 int platform_config_read(_OUT_ char *buffer, _IN_ int length)
 {
     ALINK_PARAM_CHECK(buffer == NULL);
@@ -250,12 +267,13 @@ int platform_config_read(_OUT_ char *buffer, _IN_ int length)
 
     if (ret == ESP_ERR_NVS_NOT_FOUND) {
         ALINK_LOGD("nvs_get_blob ret:%x,No data storage,the read data is empty", ret);
+        memset(buffer, 0, length);
         return ALINK_ERR;
     }
     ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_get_blob ret:%x", ret);
     ALINK_LOGD("platform_config_read: %02x %02x %02x length: %d",
                buffer[0], buffer[1], buffer[2], length);
-    return 0;
+    return ALINK_OK;
 }
 
 int platform_config_write(_IN_ const char *buffer, _IN_ int length)
@@ -273,9 +291,8 @@ int platform_config_write(_IN_ const char *buffer, _IN_ int length)
     nvs_commit(config_handle);
     nvs_close(config_handle);
     ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_set_blob ret:%x", ret);
-    return 0;
+    return ALINK_OK;
 }
-
 
 char *platform_get_chipid(_OUT_ char cid_str[PLATFORM_CID_LEN])
 {
@@ -284,18 +301,18 @@ char *platform_get_chipid(_OUT_ char cid_str[PLATFORM_CID_LEN])
     return cid_str;
 }
 
-char *platform_get_os_version(_OUT_ char version_str[PLATFORM_OS_VERSION_LEN])
+char *platform_get_os_version(_OUT_ char version_str[STR_SHORT_LEN])
 {
     ALINK_PARAM_CHECK(version_str == NULL);
     const char *idf_version = esp_get_idf_version();
-    memcpy(version_str, idf_version, PLATFORM_OS_VERSION_LEN);
+    memcpy(version_str, idf_version, STR_SHORT_LEN);
     return version_str;
 }
 
-char *platform_get_module_name(_OUT_ char name_str[PLATFORM_MODULE_NAME_LEN])
+char *platform_get_module_name(_OUT_ char name_str[STR_SHORT_LEN])
 {
     ALINK_PARAM_CHECK(name_str == NULL);
-    memcpy(name_str, MODULE_NAME, PLATFORM_MODULE_NAME_LEN);
+    memcpy(name_str, MODULE_NAME, STR_SHORT_LEN);
     return name_str;
 }
 

@@ -93,7 +93,6 @@ alink_err_t alink_connect_ap()
     ALINK_LOGI("*    ENTER SAMARTCONFIG MODE    *");
     ALINK_LOGI("*********************************");
     ret = awss_start();
-    awss_stop();
     if (ret != ALINK_OK) {
         ALINK_LOGI("awss_start is err ret: %d", ret);
         esp_restart();

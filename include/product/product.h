@@ -23,22 +23,6 @@ extern "C" {
 #define PRODUCT_ASR_APP_KEY_LEN (64)
 
 #define PRODUCT_CID_LEN         (64 + 1)
-typedef struct alink_product {
-    /* optional */
-    char name[PRODUCT_NAME_LEN];
-    char model[PRODUCT_MODEL_LEN];
-    char version[PRODUCT_NAME_LEN];
-    char type[PRODUCT_NAME_LEN];
-    char category[PRODUCT_NAME_LEN];
-    char manufacturer[PRODUCT_NAME_LEN];
-    char cid[PRODUCT_CID_LEN];
-    char sn[PRODUCT_SN_LEN];
-    char key[PRODUCT_KEY_LEN];
-    char secret[PRODUCT_SECRET_LEN];
-    char key_sandbox[PRODUCT_KEY_LEN];
-    char secret_sandbox[PRODUCT_SECRET_LEN];
-} alink_product_t;
-
 /**
  * @brief Get the product version string.
  *

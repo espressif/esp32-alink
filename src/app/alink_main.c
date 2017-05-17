@@ -159,8 +159,9 @@ static void alink_post_data(void *arg)
             ALINK_LOGD("There is no data to report");
             continue;
         }
-        ret = alink_report(ALINK_METHOD_POST, up_cmd);
 
+        // ALINK_LOGW("up_cmd: %s", up_cmd);
+        ret = alink_report(ALINK_METHOD_POST, up_cmd);
         if (ret != ALINK_OK) {
             ALINK_LOGW("post failed!");
             platform_msleep(2000);
@@ -182,6 +183,25 @@ static void cloud_disconnected(void)
     alink_event_send(ALINK_EVENT_CLOUD_DISCONNECTED);
 }
 
+extern SemaphoreHandle_t xSemWriteInfo;
+char active_data_tx_buffer[512];
+/* activate sample */
+#define ActivateDataFormat    "{\"ErrorCode\": { \"value\": \"%d\" }}"
+int activate_button_pressed(void)
+{
+    int errorcode = 0;
+    if (0 == errorcode) {
+        errorcode = 1;
+    } else {
+        errorcode = 0;
+    }
+    sprintf(active_data_tx_buffer, ActivateDataFormat, errorcode);
+    ALINK_LOGD("activate_button_pressed:%s", active_data_tx_buffer);
+    int ret = alink_report(Method_PostData, (char *)active_data_tx_buffer);
+    xSemaphoreGive(xSemWriteInfo);
+    return ret;
+}
+
 static alink_err_t alink_trans_init()
 {
     alink_err_t ret = ALINK_OK;
@@ -191,8 +211,8 @@ static alink_err_t alink_trans_init()
     xSemDownCmd      = platform_mutex_init();
     xQueueUpCmd      = xQueueCreate(DOWN_CMD_QUEUE_NUM, sizeof(char *));
     xQueueDownCmd    = xQueueCreate(UP_CMD_QUEUE_NUM, sizeof(char *));
-    alink_set_loglevel(ALINK_LL_DEBUG);
-   // alink_set_loglevel(ALINK_LL_INFO);
+    // alink_set_loglevel(ALINK_LL_DEBUG);
+    alink_set_loglevel(ALINK_LL_INFO);
 
     alink_register_callback(ALINK_CLOUD_CONNECTED, &cloud_connected);
     alink_register_callback(ALINK_CLOUD_DISCONNECTED, &cloud_disconnected);
@@ -205,6 +225,7 @@ static alink_err_t alink_trans_init()
     /*wait main device login, -1 means wait forever */
     ret = alink_wait_connect(ALINK_WAIT_FOREVER);
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_start :%d", ret);
+
     xTaskCreate(alink_post_data, "alink_post_data", 1024 * 4, NULL, DEFAULU_TASK_PRIOTY, NULL);
     return ret;
 }
@@ -221,9 +242,26 @@ void alink_trans_destroy()
     vQueueDelete(xQueueEvent);
 }
 
+#define TIME_STR_LEN    (32)
+int alink_get_time(unsigned int *utc_time)
+{
+    char buf[TIME_STR_LEN] = { 0 }, *attr_str;
+    int size = TIME_STR_LEN, attr_len = 0;
+    int ret;
+
+    ret = alink_query(Method_GetAlinkTime, "{}", buf, &size);
+    if (!ret) {
+        attr_str = json_get_value_by_name(buf, size, "time", &attr_len, NULL);
+        if (attr_str && utc_time) {
+            sscanf(attr_str, "%u", utc_time);
+        }
+    }
+    return ret;
+}
+
 extern void factory_reset(void* arg);
 extern alink_err_t alink_connect_ap();
-int esp_alink_init(_IN_ const void *product_info)
+alink_err_t esp_alink_init(_IN_ const void *product_info)
 {
     alink_err_t ret = ALINK_OK;
     xTaskCreate(factory_reset, "factory_reset", 1024 * 4, NULL, 10, NULL);
@@ -235,10 +273,15 @@ int esp_alink_init(_IN_ const void *product_info)
     ret = alink_trans_init(NULL);
     if (ret != ALINK_OK) alink_trans_destroy();
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_trans_init :%d", ret);
-    return ret;
+
+    unsigned int time = 0;
+    ret = alink_get_time(&time);
+    ALINK_LOGD("get alink utc time:ret: %d %d\n", ret, time);
+
+    return ALINK_OK;
 }
 
-int esp_alink_event_init(_IN_ alink_event_cb_t cb)
+alink_err_t esp_alink_event_init(_IN_ alink_event_cb_t cb)
 {
     ALINK_PARAM_CHECK(cb == NULL);
     s_event_handler_cb = cb;
@@ -252,7 +295,7 @@ int esp_alink_event_init(_IN_ alink_event_cb_t cb)
 #ifdef ALINK_PASSTHROUGH
 #define RawDataHeader   "{\"rawData\":\""
 #define RawDataTail     "\", \"length\":\"%d\"}"
-int esp_alink_write(_IN_ void *up_cmd, size_t len, int micro_seconds)
+ssize_t esp_alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
 {
     platform_mutex_lock(xSemWrite);
     ALINK_PARAM_CHECK(up_cmd == NULL);
@@ -306,7 +349,7 @@ static alink_err_t raw_data_unserialize(char *json_buffer, uint8_t *raw_data, in
     return ALINK_OK;
 }
 
-int esp_alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
+ssize_t esp_alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
 {
     platform_mutex_lock(xSemRead);
     ALINK_PARAM_CHECK(down_cmd == NULL);
@@ -339,9 +382,9 @@ EXIT:
     return ret;
 }
 
-#else
+#else /*!< ALINK_PASSTHROUGH */
 
-int esp_alink_write(_IN_ void *up_cmd, size_t len, int micro_seconds)
+ssize_t esp_alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
 {
     platform_mutex_lock(xSemWrite);
     ALINK_PARAM_CHECK(up_cmd == NULL);
@@ -361,7 +404,7 @@ int esp_alink_write(_IN_ void *up_cmd, size_t len, int micro_seconds)
     return ret;
 }
 
-int esp_alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
+ssize_t esp_alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
 {
     platform_mutex_lock(xSemRead);
     ALINK_PARAM_CHECK(down_cmd == NULL);
@@ -389,4 +432,4 @@ EXIT:
     platform_mutex_unlock(xSemRead);
     return ret;
 }
-#endif
+#endif /*!< ALINK_PASSTHROUGH */

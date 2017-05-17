@@ -1,13 +1,3 @@
-#if 1
-
-/* OTA example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -30,78 +20,57 @@
 
 #define BUFFSIZE 1024
 
-static const char *TAG = "alink_upgrade";
+static const char *TAG = "mesh_upgrade";
 
-/* operate handle : uninitialized value is zero ,every ota begin would exponential growth*/
-static esp_ota_handle_t out_handle = 0;
-static esp_partition_t operate_partition;
+/* update handle : set by esp_ota_begin(), must be freed via esp_ota_end() */
+esp_ota_handle_t update_handle = 0 ;
+const esp_partition_t *update_partition = NULL;
+static int binary_file_length = 0;
 
 void platform_flash_program_start(void)
 {
-    esp_err_t err;
-    const esp_partition_t *esp_current_partition = esp_ota_get_boot_partition();
-    if (esp_current_partition->type != ESP_PARTITION_TYPE_APP) {
-        ALINK_LOGE("esp_current_partition->type != ESP_PARTITION_TYPE_APP");
-        return;
-    }
+    alink_err_t err;
+    const esp_partition_t *configured = esp_ota_get_boot_partition();
+    const esp_partition_t *running = esp_ota_get_running_partition();
 
-    esp_partition_t find_partition;
-    memset(&operate_partition, 0, sizeof(esp_partition_t));
-    /*choose which OTA image should we write to*/
-    switch (esp_current_partition->subtype) {
-    case ESP_PARTITION_SUBTYPE_APP_FACTORY:
-        find_partition.subtype = ESP_PARTITION_SUBTYPE_APP_OTA_0;
-        break;
-    case  ESP_PARTITION_SUBTYPE_APP_OTA_0:
-        find_partition.subtype = ESP_PARTITION_SUBTYPE_APP_OTA_1;
-        break;
-    case ESP_PARTITION_SUBTYPE_APP_OTA_1:
-        find_partition.subtype = ESP_PARTITION_SUBTYPE_APP_OTA_0;
-        break;
-    default:
-        break;
-    }
-    find_partition.type = ESP_PARTITION_TYPE_APP;
+    assert(configured == running); /* fresh from reset, should be running from configured boot partition */
+    ALINK_LOGI("Running partition type %d subtype %d (offset 0x%08x)",
+             configured->type, configured->subtype, configured->address);
 
-    const esp_partition_t *partition = esp_partition_find_first(find_partition.type, find_partition.subtype, NULL);
-    assert(partition != NULL);
-    memset(&operate_partition, 0, sizeof(esp_partition_t));
-    err = esp_ota_begin( partition, OTA_SIZE_UNKNOWN, &out_handle);
-    ALINK_ERROR_CHECK(err != ESP_OK, ; , "esp_ota_begin, err:%x", err);
-    memcpy(&operate_partition, partition, sizeof(esp_partition_t));
-    ALINK_LOGI("esp_ota_begin init OK");
+    update_partition = esp_ota_get_next_update_partition(NULL);
+    ALINK_LOGI("Writing to partition subtype %d at offset 0x%x",
+             update_partition->subtype, update_partition->address);
+    assert(update_partition != NULL);
+
+    err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
+    ALINK_ERROR_CHECK(err != ESP_OK, ;, "esp_ota_begin failed, error=%d", err);
+
+    ALINK_LOGI("esp_ota_begin succeeded");
 }
 
-int platform_flash_program_write_block(char *buffer, uint32_t length)
+int platform_flash_program_write_block(_IN_ char *buffer, _IN_ uint32_t length)
 {
-    ALINK_PARAM_CHECK(length <= 0);
+    ALINK_PARAM_CHECK(length == 0);
     ALINK_PARAM_CHECK(buffer == NULL);
 
-    esp_err_t err;
-    static int binary_file_length = 0;
-    char *ota_write_data = (char *)malloc(BUFFSIZE);
-    ALINK_ERROR_CHECK(ota_write_data == NULL, ALINK_ERR, "malloc, err:%p", ota_write_data);
-    memset(ota_write_data, 0, BUFFSIZE);
-    memcpy(ota_write_data, buffer, length);
-    err = esp_ota_write( out_handle, (const void *)ota_write_data, length);
-    ALINK_ERROR_CHECK(err != ESP_OK, ALINK_ERR, "esp_ota_begin, err:%x", err);
+    alink_err_t err;
+    err = esp_ota_write( update_handle, (const void *)buffer, length);
+    ALINK_ERROR_CHECK(err != ESP_OK, ALINK_ERR, "Error: esp_ota_write failed! err=0x%x", err);
 
     binary_file_length += length;
     ALINK_LOGI("Have written image length %d", binary_file_length);
-    if (ota_write_data) free(ota_write_data);
-    return 0;
+    return ALINK_OK;
 }
 
 int platform_flash_program_stop(void)
 {
-    esp_err_t err;
-    err = esp_ota_end(out_handle);
-    ALINK_ERROR_CHECK(err != ESP_OK, ALINK_ERR, "esp_ota_end failed! err:%d", err);
+    alink_err_t err;
+    ALINK_LOGI("Total Write binary data length : %d", binary_file_length);
+    err = esp_ota_end(update_handle);
+    ALINK_ERROR_CHECK(err != ESP_OK, ALINK_ERR, "esp_ota_end failed!");
 
-    err = esp_ota_set_boot_partition(&operate_partition);
-    ALINK_ERROR_CHECK(err != ESP_OK, ALINK_ERR, "esp_ota_set_boot_partition failed! err:%d", err);
+    err = esp_ota_set_boot_partition(update_partition);
+    ALINK_ERROR_CHECK(err != ESP_OK, ALINK_ERR, "esp_ota_set_boot_partition failed! err=0x%x", err);
 
-    return ESP_OK;
+    return ALINK_OK;
 }
-#endif
-
