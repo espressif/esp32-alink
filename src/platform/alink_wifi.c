@@ -24,7 +24,7 @@ static const char *TAG = "alink_wifi";
  */
 int platform_awss_get_timeout_interval_ms(void)
 {
-    return 30000;
+    return 3 * 60 * 1000;
 }
 
 /**
@@ -37,7 +37,7 @@ int platform_awss_get_timeout_interval_ms(void)
  */
 int platform_awss_get_connect_default_ssid_timeout_interval_ms(void)
 {
-    return 30000;
+    return 0;
 }
 
 /**
@@ -50,7 +50,7 @@ int platform_awss_get_connect_default_ssid_timeout_interval_ms(void)
  */
 int platform_awss_get_channelscan_interval_ms(void)
 {
-    return 100;
+    return 400;
 }
 
 
@@ -106,12 +106,8 @@ char *platform_wifi_get_mac(_OUT_ char mac_str[PLATFORM_MAC_LEN])
 {
     ALINK_PARAM_CHECK(mac_str == NULL);
     uint8_t mac[6] = {0};
-    // wifi_mode_t mode_backup;
-    // esp_wifi_get_mode(&mode_backup);
-    // esp_wifi_set_mode(WIFI_MODE_STA);
     ESP_ERROR_CHECK(esp_wifi_get_mac(ESP_IF_WIFI_STA, mac));
     snprintf(mac_str, PLATFORM_MAC_LEN, MACSTR, MAC2STR(mac));
-    // esp_wifi_set_mode(mode_backup);
     return mac_str;
 }
 

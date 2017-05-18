@@ -183,11 +183,10 @@ static void cloud_disconnected(void)
     alink_event_send(ALINK_EVENT_CLOUD_DISCONNECTED);
 }
 
-extern SemaphoreHandle_t xSemWriteInfo;
 char active_data_tx_buffer[512];
 /* activate sample */
 #define ActivateDataFormat    "{\"ErrorCode\": { \"value\": \"%d\" }}"
-int activate_button_pressed(void)
+alink_err_t alink_activate_device()
 {
     int errorcode = 0;
     if (0 == errorcode) {
@@ -195,11 +194,17 @@ int activate_button_pressed(void)
     } else {
         errorcode = 0;
     }
-    sprintf(active_data_tx_buffer, ActivateDataFormat, errorcode);
-    ALINK_LOGD("activate_button_pressed:%s", active_data_tx_buffer);
-    int ret = alink_report(Method_PostData, (char *)active_data_tx_buffer);
-    xSemaphoreGive(xSemWriteInfo);
-    return ret;
+    char *q_data = (char *)malloc(ALINK_DATA_LEN);
+    sprintf(q_data, ActivateDataFormat, errorcode);
+    ALINK_LOGD("activate_button_pressed:%s", q_data);
+
+    int ret = xQueueSend(xQueueUpCmd, &q_data, 50 / portTICK_PERIOD_MS);
+    if (ret == pdFALSE) {
+        ALINK_LOGW("xQueueSend xQueueUpCmd, wait_time: %d", 50);
+        alink_free(q_data);
+        return ALINK_ERR;
+    }
+    return ALINK_OK;
 }
 
 static alink_err_t alink_trans_init()
@@ -211,8 +216,8 @@ static alink_err_t alink_trans_init()
     xSemDownCmd      = platform_mutex_init();
     xQueueUpCmd      = xQueueCreate(DOWN_CMD_QUEUE_NUM, sizeof(char *));
     xQueueDownCmd    = xQueueCreate(UP_CMD_QUEUE_NUM, sizeof(char *));
-    // alink_set_loglevel(ALINK_LL_DEBUG);
-    alink_set_loglevel(ALINK_LL_INFO);
+    alink_set_loglevel(ALINK_LL_DEBUG);
+    // alink_set_loglevel(ALINK_LL_INFO);
 
     alink_register_callback(ALINK_CLOUD_CONNECTED, &cloud_connected);
     alink_register_callback(ALINK_CLOUD_DISCONNECTED, &cloud_disconnected);
@@ -259,12 +264,10 @@ int alink_get_time(unsigned int *utc_time)
     return ret;
 }
 
-extern void factory_reset(void* arg);
 extern alink_err_t alink_connect_ap();
 alink_err_t esp_alink_init(_IN_ const void *product_info)
 {
     alink_err_t ret = ALINK_OK;
-    xTaskCreate(factory_reset, "factory_reset", 1024 * 4, NULL, 10, NULL);
     ret = product_set(product_info);
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "product_set :%d", ret);
 

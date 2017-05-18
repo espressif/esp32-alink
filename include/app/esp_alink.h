@@ -95,6 +95,7 @@ typedef enum {
     ALINK_EVENT_STA_GOT_IP,         /*!< ESP32 station got IP from connected AP */
     ALINK_EVENT_STA_DISCONNECTED,   /*!< ESP32 station disconnected from AP */
     ALINK_EVENT_CONFIG_NETWORK,     /*!< The equipment enters the distribution mode */
+    ALINK_EVENT_UPDATE_ROUTER,     /*!< The equipment enters the distribution mode */
     ALINK_EVENT_FACTORY_RESET,     /*!< The equipment enters the distribution mode */
     ALINK_EVENT_ACTIVATE_DEVICE,     /*!< The equipment enters the distribution mode */
 } alink_event_t;
@@ -165,4 +166,11 @@ ssize_t esp_alink_write(_IN_ const void *up_cmd, size_t size, int micro_seconds)
  */
 ssize_t esp_alink_read(_OUT_ void *down_cmd, size_t size, int  micro_seconds);
 
+alink_err_t alink_activate_device();
+
+alink_err_t alink_update_router();
+
+alink_err_t esp_alink_factory_reset();
+
+alink_err_t alink_event_send(alink_event_t event);
 #endif

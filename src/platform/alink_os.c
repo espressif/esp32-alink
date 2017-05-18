@@ -90,10 +90,7 @@ void platform_mutex_destroy(_IN_ void *mutex)
 
 void platform_mutex_lock(_IN_ void *mutex)
 {
-    if (mutex == NULL) {
-        ALINK_LOGE("----------platform_mutex_lock mutex == NULL-----------------");
-        return ;
-    }
+    ALINK_PARAM_CHECK(mutex == NULL);
     //if can not get the mux,it will wait all the time
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreTake(mutex, portMAX_DELAY);
@@ -101,10 +98,7 @@ void platform_mutex_lock(_IN_ void *mutex)
 
 void platform_mutex_unlock(_IN_ void *mutex)
 {
-    if (mutex == NULL) {
-        ALINK_LOGE("----------platform_mutex_unlock mutex == NULL-----------------");
-        return ;
-    }
+    ALINK_PARAM_CHECK(mutex == NULL);
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreGive(mutex);
 }
@@ -319,19 +313,4 @@ char *platform_get_module_name(_OUT_ char name_str[STR_SHORT_LEN])
 void platform_sys_reboot(void)
 {
     esp_restart();
-}
-
-
-/**
- * @brief release the specified thread resource.
- *
- * @param[in] thread: the specified thread handle.
- * @return None.
- * @see None.
- * @note Called outside of the thread. The resource that must be kept until thread exit completely
- *  can be released here, such as thread stack.
- */
-void platform_thread_release_resources(void *thread)
-{
-
 }

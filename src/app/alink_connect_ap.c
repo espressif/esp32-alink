@@ -74,6 +74,17 @@ alink_err_t alink_erase_wifi_config()
     return ALINK_OK;
 }
 
+alink_err_t alink_update_router()
+{
+    int ret = 0;
+    ALINK_LOGI("clear wifi config");
+    ret = alink_erase_wifi_config();
+    ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "alink_erase_wifi_config");
+    ALINK_LOGI("The system is about to be restarted");
+    esp_restart();
+    return ALINK_OK;
+}
+
 alink_err_t alink_connect_ap()
 {
     alink_err_t ret = ALINK_ERR;

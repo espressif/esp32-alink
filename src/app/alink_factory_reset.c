@@ -22,8 +22,6 @@
 static const char *TAG = "alink_factory_reset";
 static xQueueHandle gpio_evt_queue = NULL;
 
-extern alink_err_t alink_erase_wifi_config();
-
 void IRAM_ATTR gpio_isr_handler(void* arg)
 {
     uint32_t gpio_num = (uint32_t) arg;
@@ -56,8 +54,9 @@ void alink_key_init(uint32_t key_gpio_pin)
 }
 
 typedef enum {
-    ALINK_KEY_LONG_PRESS = 1,
-    ALINK_KEY_SHORT_PRESS,
+    ALINK_KEY_SHORT_PRESS = 1,
+    ALINK_KEY_MEDIUM_PRESS,
+    ALINK_KEY_LONG_PRESS,
 } alink_key_t;
 
 alink_err_t alink_key_scan(TickType_t ticks_to_wait)
@@ -82,8 +81,10 @@ alink_err_t alink_key_scan(TickType_t ticks_to_wait)
         if (press_key & lift_key) {
             press_key = pdFALSE;
             lift_key = pdFALSE;
-            if (backup_time > 3000000) {
-                return ALINK_KEY_LONG_PRESS;
+            if (backup_time > 5000000) {
+                    return ALINK_KEY_LONG_PRESS;
+            } else if (backup_time > 1000000) {
+                return ALINK_KEY_MEDIUM_PRESS;
             } else {
                 return ALINK_KEY_SHORT_PRESS;
             }
@@ -91,78 +92,47 @@ alink_err_t alink_key_scan(TickType_t ticks_to_wait)
     }
 }
 
-int activate_button_pressed(void);
-void factory_reset(void* arg)
+void alink_key_event(void* arg)
 {
-    alink_key_init(ALINK_RESET_KEY_IO);
     alink_err_t ret = 0;
-    while (1) {
+    alink_key_init(ALINK_RESET_KEY_IO);
+    for (;;) {
         ret = alink_key_scan(portMAX_DELAY);
         ALINK_ERROR_CHECK(ret == ALINK_ERR, vTaskDelete(NULL), "alink_key_scan ret:%d", ret);
-        ret = activate_button_pressed();
-        // ALINK_ERROR_CHECK(ret != ALINK_OK, vTaskDelete(NULL), "activate_button_pressed :%d", ret);
+
+        switch (ret) {
+        case ALINK_KEY_SHORT_PRESS:
+            alink_event_send(ALINK_EVENT_ACTIVATE_DEVICE);
+            break;
+
+        case ALINK_KEY_MEDIUM_PRESS:
+            alink_event_send(ALINK_EVENT_UPDATE_ROUTER);
+            break;
+
+        case ALINK_KEY_LONG_PRESS:
+            alink_event_send(ALINK_EVENT_FACTORY_RESET);
+            break;
+
+        default:
+            break;
+        }
     }
 
-    ret = alink_key_scan(portMAX_DELAY);
-    ALINK_ERROR_CHECK(ret == ALINK_ERR, vTaskDelete(NULL), "alink_key_scan ret:%d", ret);
-
-    alink_erase_wifi_config();
-    /* clear ota data  */
-    if (ret == ALINK_KEY_LONG_PRESS) {
-        ALINK_LOGI("*********************************");
-        ALINK_LOGI("*          FACTORY RESET        *");
-        ALINK_LOGI("*********************************");
-        alink_err_t err;
-        esp_partition_t find_partition;
-        memset(&find_partition, 0, sizeof(esp_partition_t));
-        find_partition.type = ESP_PARTITION_TYPE_DATA;
-        find_partition.subtype = ESP_PARTITION_SUBTYPE_DATA_OTA;
-
-        const esp_partition_t *partition = esp_partition_find_first(find_partition.type, find_partition.subtype, NULL);
-        if (partition == NULL) {
-            ALINK_LOGE("nvs_erase_key partition:%p", partition);
-            vTaskDelete(NULL);
-        }
-
-        err = esp_partition_erase_range(partition, 0, partition->size);
-        if (err != ALINK_OK) {
-            ALINK_LOGE("esp_partition_erase_range ret:%d", err);
-            vTaskDelete(NULL);
-        }
-        ALINK_LOGI("reset user account binding");
-        alink_factory_reset();
-    }
-
-    ALINK_LOGI("The system is about to be restarted");
-    esp_restart();
     vTaskDelete(NULL);
 }
 
-#if 0
-typedef enum {
-    CONFIG_NETWORK_MODE,
-    FACTORY_RESET_MODE,
-    ACTIVATE_MODE,
-} event;
-
-alink_err_t alink_event_send(alink_event_t event)
-{
-    if (xQueueEvent == NULL)
-        xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
-    if (xQueueSend(xQueueEvent, &event, 0) != pdTRUE) {
-        ALINK_LOGE("xQueueSendToBack fail!");
-        return ALINK_ERR;
-    }
-    return ALINK_OK;
-}
-
-alink_err_t alink_factory_reset()
+alink_err_t alink_erase_wifi_config();
+alink_err_t esp_alink_factory_reset()
 {
     /* clear ota data  */
     ALINK_LOGI("*********************************");
     ALINK_LOGI("*          FACTORY RESET        *");
     ALINK_LOGI("*********************************");
+    ALINK_LOGI("clear wifi config");
     alink_err_t err;
+    err = alink_erase_wifi_config();
+    ALINK_ERROR_CHECK(err != 0, ALINK_ERR, "alink_erase_wifi_config");
+
     esp_partition_t find_partition;
     memset(&find_partition, 0, sizeof(esp_partition_t));
     find_partition.type = ESP_PARTITION_TYPE_DATA;
@@ -184,19 +154,3 @@ alink_err_t alink_factory_reset()
     ALINK_LOGI("The system is about to be restarted");
     esp_restart();
 }
-
-alink_err_t alink_config_network()
-{
-    int ret = 0;
-    ALINK_LOGI("clear wifi config");
-    ret = alink_erase_wifi_config();
-    ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "alink_erase_wifi_config");
-    ALINK_LOGI("The system is about to be restarted");
-    esp_restart();
-    return ALINK_OK;
-}
-
-
-    vTaskDelete(NULL);
-}
-#endif
