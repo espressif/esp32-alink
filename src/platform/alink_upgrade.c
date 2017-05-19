@@ -20,7 +20,7 @@
 
 #define BUFFSIZE 1024
 
-static const char *TAG = "mesh_upgrade";
+static const char *TAG = "alink_upgrade";
 
 /* update handle : set by esp_ota_begin(), must be freed via esp_ota_end() */
 esp_ota_handle_t update_handle = 0 ;

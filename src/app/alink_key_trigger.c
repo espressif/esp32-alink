@@ -13,9 +13,9 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "driver/gpio.h"
-#include "esp_partition.h"
 #include "esp_system.h"
 #include "esp_alink.h"
+#include "alink_info_store.h"
 
 #define ESP_INTR_FLAG_DEFAULT 0
 
@@ -82,7 +82,7 @@ alink_err_t alink_key_scan(TickType_t ticks_to_wait)
             press_key = pdFALSE;
             lift_key = pdFALSE;
             if (backup_time > 5000000) {
-                    return ALINK_KEY_LONG_PRESS;
+                return ALINK_KEY_LONG_PRESS;
             } else if (backup_time > 1000000) {
                 return ALINK_KEY_MEDIUM_PRESS;
             } else {
@@ -92,7 +92,7 @@ alink_err_t alink_key_scan(TickType_t ticks_to_wait)
     }
 }
 
-void alink_key_event(void* arg)
+void alink_key_trigger(void* arg)
 {
     alink_err_t ret = 0;
     alink_key_init(ALINK_RESET_KEY_IO);
@@ -121,36 +121,3 @@ void alink_key_event(void* arg)
     vTaskDelete(NULL);
 }
 
-alink_err_t alink_erase_wifi_config();
-alink_err_t esp_alink_factory_reset()
-{
-    /* clear ota data  */
-    ALINK_LOGI("*********************************");
-    ALINK_LOGI("*          FACTORY RESET        *");
-    ALINK_LOGI("*********************************");
-    ALINK_LOGI("clear wifi config");
-    alink_err_t err;
-    err = alink_erase_wifi_config();
-    ALINK_ERROR_CHECK(err != 0, ALINK_ERR, "alink_erase_wifi_config");
-
-    esp_partition_t find_partition;
-    memset(&find_partition, 0, sizeof(esp_partition_t));
-    find_partition.type = ESP_PARTITION_TYPE_DATA;
-    find_partition.subtype = ESP_PARTITION_SUBTYPE_DATA_OTA;
-
-    const esp_partition_t *partition = esp_partition_find_first(find_partition.type, find_partition.subtype, NULL);
-    ALINK_ERROR_CHECK(partition == NULL, ALINK_ERR, "nvs_erase_key partition:%p", partition);
-
-    err = esp_partition_erase_range(partition, 0, partition->size);
-    ALINK_ERROR_CHECK(partition == NULL, ALINK_ERR, "nvs_erase_key partition:%p", partition);
-
-    if (err != ALINK_OK) {
-        ALINK_LOGE("esp_partition_erase_range ret:%d", err);
-        vTaskDelete(NULL);
-    }
-    ALINK_LOGI("reset user account binding");
-    alink_factory_reset();
-
-    ALINK_LOGI("The system is about to be restarted");
-    esp_restart();
-}

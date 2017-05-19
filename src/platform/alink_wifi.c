@@ -11,6 +11,7 @@
 #include "platform.h"
 #include "alink_export.h"
 #include "esp_alink.h"
+#include "alink_info_store.h"
 
 static platform_awss_recv_80211_frame_cb_t g_sniffer_cb = NULL;
 static const char *TAG = "alink_wifi";
@@ -50,7 +51,7 @@ int platform_awss_get_connect_default_ssid_timeout_interval_ms(void)
  */
 int platform_awss_get_channelscan_interval_ms(void)
 {
-    return 400;
+    return 300;
 }
 
 
@@ -156,7 +157,6 @@ static alink_err_t event_handler(void *ctx, system_event_t *event)
     return ALINK_OK;
 }
 
-alink_err_t alink_write_wifi_config(_IN_ const wifi_config_t *wifi_config);
 int platform_awss_connect_ap(
     _IN_ uint32_t connection_timeout_ms,
     _IN_ char ssid[PLATFORM_MAX_SSID_LEN],
@@ -184,7 +184,8 @@ int platform_awss_connect_ap(
     BaseType_t err = xSemaphoreTake(xSemConnet, connection_timeout_ms / portTICK_RATE_MS);
     if (err != pdTRUE) ESP_ERROR_CHECK( esp_wifi_stop() );
     ALINK_ERROR_CHECK(err != pdTRUE, ALINK_ERR, "xSemaphoreTake ret:%x wait: %d", err, connection_timeout_ms);
-    alink_write_wifi_config(&wifi_config);
+    err = alink_info_save(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
+    if (err < 0) ALINK_LOGE("alink information save failed");
     return ALINK_OK;
 }
 
@@ -398,7 +399,7 @@ int platform_aes128_cbc_encrypt(
     platform_aes_t *p_aes128 = (platform_aes_t *)aes;
     for (int i = 0; i < blockNum; ++i) {
         ret = mbedtls_aes_crypt_cbc(&p_aes128->ctx, MBEDTLS_AES_ENCRYPT, AES_BLOCK_SIZE,
-                                    &p_aes128->iv, src, dst);
+                                    p_aes128->iv, src, dst);
         src += 16;
         dst += 16;
     }
@@ -436,7 +437,7 @@ int platform_aes128_cbc_decrypt(
 
     for (int i = 0; i < blockNum; ++i) {
         ret = mbedtls_aes_crypt_cbc(&p_aes128->ctx, MBEDTLS_AES_DECRYPT, AES_BLOCK_SIZE,
-                                    &p_aes128->iv, src, dst);
+                                    p_aes128->iv, src, dst);
         src += 16;
         dst += 16;
     }
@@ -461,8 +462,6 @@ int platform_aes128_cbc_decrypt(
  * @note None.
  */
 
-extern alink_err_t alink_read_wifi_config(_OUT_ wifi_config_t *wifi_config);
-
 int platform_wifi_get_ap_info(
     _OUT_ char ssid[PLATFORM_MAX_SSID_LEN],
     _OUT_ char passwd[PLATFORM_MAX_PASSWD_LEN],
@@ -473,9 +472,12 @@ int platform_wifi_get_ap_info(
     memset(&ap_info, 0, sizeof(wifi_ap_record_t));
     ESP_ERROR_CHECK(esp_wifi_sta_get_ap_info(&ap_info));
 
+    if (ssid) memcpy(ssid, ap_info.ssid, PLATFORM_MAX_SSID_LEN);
+    if (bssid) memcpy(bssid, ap_info.bssid, ETH_ALEN);
+
     wifi_config_t wifi_config;
-    ret = alink_read_wifi_config(&wifi_config);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_read_wifi_config");
+    ret = alink_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
+    ALINK_ERROR_CHECK(ret <= 0, ALINK_ERR, "alink_read_wifi_config");
     if (!memcmp(ap_info.ssid, wifi_config.ap.ssid, strlen((char *)ap_info.ssid))) {
         if (passwd) memcpy(passwd, wifi_config.ap.password, PLATFORM_MAX_PASSWD_LEN);
     } else {
@@ -483,8 +485,6 @@ int platform_wifi_get_ap_info(
         if (passwd)  memset(passwd, 0, PLATFORM_MAX_PASSWD_LEN);
     }
 
-    if (ssid) memcpy(ssid, ap_info.ssid, PLATFORM_MAX_SSID_LEN);
-    if (bssid) memcpy(bssid, ap_info.bssid, ETH_ALEN);
 
     return ALINK_OK;
 }

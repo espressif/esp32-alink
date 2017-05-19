@@ -220,7 +220,12 @@ int platform_thread_create(_OUT_ void **thread,
     // if (pdTRUE == xTaskCreatePinnedToCore((TaskFunction_t)start_routine, name, stack_size * 2, arg, DEFAULU_TASK_PRIOTY, thread, 0)) {
     ALINK_LOGD("thread_create name: %s, stack_size: %d, priority:%d",
                name, stack_size * 2, DEFAULU_TASK_PRIOTY);
-    ret = xTaskCreate((TaskFunction_t)start_routine, name, stack_size * 2, arg, DEFAULU_TASK_PRIOTY, thread);
+    if (strcmp(name, "work queue") == 0) {
+        ALINK_LOGW("=============== work queue ==================");
+        ret = xTaskCreate((TaskFunction_t)start_routine, name, stack_size * 2, arg, 12, thread);
+    } else {
+        ret = xTaskCreate((TaskFunction_t)start_routine, name, stack_size * 2, arg, DEFAULU_TASK_PRIOTY, thread);
+    }
     ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "thread_create name: %s, stack_size: %d, ret: %d", name, stack_size * 2, ret);
 
     int pos = get_task_name_location(name);
