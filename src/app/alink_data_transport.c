@@ -77,7 +77,9 @@ static alink_err_t cloud_get_device_data(_IN_ char *json_buffer)
 
     int size = ret + 1;
     char *q_data = (char *)malloc(size);
-    if (size > ALINK_DATA_LEN) ALINK_LOGW("json_buffer len:%d", size);
+    if (size > ALINK_DATA_LEN) {
+        ALINK_LOGW("json_buffer len:%d", size);
+    }
     memcpy(q_data, json_buffer, size);
 
     if (xQueueSend(xQueueDownCmd, &q_data, 0) != pdTRUE) {
@@ -99,7 +101,9 @@ static alink_err_t cloud_set_device_data(_IN_ char *json_buffer)
 
     int size = ret + 1;
     char *q_data = (char *)malloc(size);
-    if (size > ALINK_DATA_LEN) ALINK_LOGW("json_buffer len:%d", size);
+    if (size > ALINK_DATA_LEN) {
+        ALINK_LOGW("json_buffer len:%d", size);
+    }
     memcpy(q_data, json_buffer, size);
 
     if (xQueueSend(xQueueDownCmd, &q_data, 0) != pdTRUE) {
@@ -185,7 +189,9 @@ ssize_t alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
 {
     ALINK_PARAM_CHECK(up_cmd == NULL);
     ALINK_PARAM_CHECK(len == 0 || len > ALINK_DATA_LEN);
-    if(!xQueueUpCmd) return ALINK_ERR;
+    if (!xQueueUpCmd) {
+        return ALINK_ERR;
+    }
 
     int i = 0;
     alink_err_t ret = ALINK_OK;
@@ -220,8 +226,9 @@ static alink_err_t raw_data_unserialize(char *json_buffer, uint8_t *raw_data, in
     attr_str = json_get_value_by_name(json_buffer, strlen(json_buffer),
                                       "rawData", &attr_len, NULL);
 
-    if (!attr_str || !attr_len || attr_len > *raw_data_len * 2)
+    if (!attr_str || !attr_len || attr_len > *raw_data_len * 2) {
         return ALINK_ERR;
+    }
 
     int raw_data_tmp = 0;
     for (i = 0; i < attr_len; i += 2) {
@@ -237,7 +244,9 @@ ssize_t alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
 {
     ALINK_PARAM_CHECK(down_cmd == NULL);
     ALINK_PARAM_CHECK(size == 0 || size > ALINK_DATA_LEN);
-    if(!xQueueDownCmd) return ALINK_ERR;
+    if (!xQueueDownCmd) {
+        return ALINK_ERR;
+    }
 
     alink_err_t ret = ALINK_OK;
     char *q_data = NULL;
@@ -270,7 +279,9 @@ ssize_t alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
 {
     ALINK_PARAM_CHECK(up_cmd == NULL);
     ALINK_PARAM_CHECK(len == 0 || len > ALINK_DATA_LEN);
-    if(!xQueueUpCmd) return ALINK_ERR;
+    if (!xQueueUpCmd) {
+        return ALINK_ERR;
+    }
 
     alink_err_t ret = ALINK_OK;
     char *q_data = (char *)malloc(ALINK_DATA_LEN);
@@ -289,7 +300,9 @@ ssize_t alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
 {
     ALINK_PARAM_CHECK(down_cmd == NULL);
     ALINK_PARAM_CHECK(size == 0 || size > ALINK_DATA_LEN);
-    if(!xQueueDownCmd) return ALINK_ERR;
+    if (!xQueueDownCmd) {
+        return ALINK_ERR;
+    }
 
     alink_err_t ret = ALINK_OK;
     char *q_data = NULL;

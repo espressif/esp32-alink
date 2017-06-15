@@ -57,7 +57,7 @@ enum JSON_PARSE_RESULT {
 };
 
 #define JSON_DEBUG 0
-typedef int (*json_parse_cb)(char* p_cName, int iNameLen, char* p_cValue, int iValueLen, int iValueType, void* p_Result);
+typedef int (*json_parse_cb)(char *p_cName, int iNameLen, char *p_cValue, int iValueLen, int iValueType, void *p_Result);
 
 /**
 * @brief Parse the JSON string, and iterate through all keys and values,
@@ -71,7 +71,7 @@ typedef int (*json_parse_cb)(char* p_cName, int iNameLen, char* p_cValue, int iV
 * @see None.
 * @note None.
 **/
-int json_parse_name_value(char* p_cJsonStr, int iStrLen, json_parse_cb pfnCB, void* p_CBData);
+int json_parse_name_value(char *p_cJsonStr, int iStrLen, json_parse_cb pfnCB, void *p_CBData);
 
 /**
 * @brief Get the value by a specified key from a json string
@@ -85,7 +85,7 @@ int json_parse_name_value(char* p_cJsonStr, int iStrLen, json_parse_cb pfnCB, vo
 * @see None.
 * @note None.
 **/
-char* json_get_value_by_name(char* p_cJsonStr, int iStrLen, char* p_cName, int* p_iValueLen, int* p_iValueType);
+char *json_get_value_by_name(char *p_cJsonStr, int iStrLen, char *p_cName, int *p_iValueLen, int *p_iValueType);
 
 /**
 * @brief Get the length of a json string
@@ -107,8 +107,8 @@ int json_get_array_size(char *json_str, int str_len);
  * @see None.
  * @note None.
  */
-char* json_get_object(int type, char* str);
-char* json_get_next_object(int type, char* str, char** key, int* key_len, char** val, int* val_len, int* val_type);
+char *json_get_object(int type, char *str);
+char *json_get_next_object(int type, char *str, char **key, int *key_len, char **val, int *val_len, int *val_type);
 /**
  * @brief retrieve each key&value pair from the json string
  *

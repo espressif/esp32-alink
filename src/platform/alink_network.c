@@ -42,7 +42,9 @@ static alink_err_t network_create_socket( pplatform_netaddr_t netaddr, int type,
     }
 
     *psock = socket(AF_INET, type, 0);
-    if (*psock < 0) return -1;
+    if (*psock < 0) {
+        return -1;
+    }
 
     memset(paddr, 0, sizeof(struct sockaddr_in));
 
@@ -52,7 +54,9 @@ static alink_err_t network_create_socket( pplatform_netaddr_t netaddr, int type,
 
     if (type == SOCK_DGRAM) {
         ret = setsockopt(*psock, SOL_SOCKET, SO_BROADCAST, &opt_val, sizeof(opt_val));
-        if (ret != 0) close((int)*psock);
+        if (ret != 0) {
+            close((int)*psock);
+        }
         ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_BROADCAST errno: %d", errno);
     }
 
@@ -118,7 +122,7 @@ void *platform_udp_multicast_server_create(pplatform_netaddr_t netaddr)
     ret = network_create_socket(&netaddr_client, SOCK_DGRAM, &addr, &sock);
     ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "network_create_socket");
 
-    if (-1 == bind(sock, (struct sockaddr*)&addr, sizeof(struct sockaddr_in))) {
+    if (-1 == bind(sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_in))) {
         ALINK_LOGE("socket bind, errno: %d", errno);
         perror("socket bind");
         platform_udp_close((void *)sock);
@@ -231,7 +235,7 @@ void *platform_tcp_server_accept(_IN_ void *server)
     unsigned int addr_length = sizeof(addr);
     int new_client;
 
-    new_client = accept((int)server, (struct sockaddr*)&addr, &addr_length);
+    new_client = accept((int)server, (struct sockaddr *)&addr, &addr_length);
     ALINK_ERROR_CHECK(new_client <= 0, NULL, "accept errno:%d", errno);
 
     return (void *)new_client;
@@ -248,7 +252,7 @@ void *platform_tcp_client_connect(_IN_ pplatform_netaddr_t netaddr)
     ret = network_create_socket(netaddr, SOCK_STREAM, &addr, &sock);
     ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "network_create_socket");
 
-    if (-1 == connect(sock, (struct sockaddr*)&addr, sizeof(struct sockaddr_in))) {
+    if (-1 == connect(sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_in))) {
         ALINK_LOGE("connect errno: %d", errno);
         perror("connect");
         platform_tcp_close((void *)sock);
@@ -297,9 +301,9 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
     struct timeval *ptimeval = &timeout_value;
     fd_set r_set, w_set;
     int max_fd = -1;
-    if (PLATFORM_WAIT_INFINITE == timeout_ms)
+    if (PLATFORM_WAIT_INFINITE == timeout_ms) {
         ptimeval = NULL;
-    else {
+    } else {
         ptimeval->tv_sec = timeout_ms / 1000;
         ptimeval->tv_usec = (timeout_ms % 1000) * 1000;
     }
@@ -316,8 +320,9 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
         }
 
         for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
-            if (PLATFORM_INVALID_FD != read_fds[i])
+            if (PLATFORM_INVALID_FD != read_fds[i]) {
                 FD_SET((int)read_fds[i], &r_set);
+            }
             if ((int)read_fds[i] > max_fd) {
                 max_fd = (int)read_fds[i];
             }
@@ -326,8 +331,9 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
 
     if (write_fds) {
         for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
-            if ( PLATFORM_INVALID_FD != write_fds[i] )
+            if ( PLATFORM_INVALID_FD != write_fds[i] ) {
                 FD_SET((int)write_fds[i], &w_set);
+            }
             if ((int)write_fds[i] > max_fd) {
                 max_fd = (int)write_fds[i];
             }
@@ -339,40 +345,46 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
         if (read_fds) {
             for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
                 if (PLATFORM_INVALID_FD != read_fds[i]
-                        && !FD_ISSET((int)read_fds[i], &r_set))
+                        && !FD_ISSET((int)read_fds[i], &r_set)) {
                     read_fds[i] = PLATFORM_INVALID_FD;
+                }
             }
         }
 
         if (write_fds) {
             for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
                 if (PLATFORM_INVALID_FD != write_fds[i]
-                        && !FD_ISSET((int)write_fds[i], &w_set))
+                        && !FD_ISSET((int)write_fds[i], &w_set)) {
                     write_fds[i] = PLATFORM_INVALID_FD;
+                }
             }
         }
     } else {/* clear all fd */
         if (read_fds) {
-            for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i)
+            for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
                 read_fds[i] = PLATFORM_INVALID_FD;
+            }
         }
 
         if (write_fds) {
-            for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i)
+            for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
                 write_fds[i] = PLATFORM_INVALID_FD;
+            }
         }
     }
 
     if (ret < 0 && read_fds) {
         printf("read_fds:\n");
-        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i)
+        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
             printf("%d \n", (int)read_fds[i]);
+        }
     }
 
     if (ret < 0 && write_fds) {
         printf("write_fds:\n");
-        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i)
+        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
             printf("%d \n", (int)write_fds[i]);
+        }
     }
     ALINK_ERROR_CHECK(ret < 0, ret, "select max_fd: %d, ret:%d, errno: %d", max_fd, ret, errno);
     return ret;

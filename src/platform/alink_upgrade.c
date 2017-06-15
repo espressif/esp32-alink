@@ -35,15 +35,15 @@ void platform_flash_program_start(void)
 
     assert(configured == running); /* fresh from reset, should be running from configured boot partition */
     ALINK_LOGI("Running partition type %d subtype %d (offset 0x%08x)",
-             configured->type, configured->subtype, configured->address);
+               configured->type, configured->subtype, configured->address);
 
     update_partition = esp_ota_get_next_update_partition(NULL);
     ALINK_LOGI("Writing to partition subtype %d at offset 0x%x",
-             update_partition->subtype, update_partition->address);
+               update_partition->subtype, update_partition->address);
     assert(update_partition != NULL);
 
     err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
-    ALINK_ERROR_CHECK(err != ESP_OK, ;, "esp_ota_begin failed, error=%d", err);
+    ALINK_ERROR_CHECK(err != ESP_OK, ; , "esp_ota_begin failed, error=%d", err);
 
     ALINK_LOGI("esp_ota_begin succeeded");
 }

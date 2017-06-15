@@ -29,7 +29,9 @@ void *platform_ssl_connect(_IN_ void *tcp_fd, _IN_ const char *server_cert, _IN_
     SSL *ssl = NULL;
     int socket = (int)tcp_fd;
     int ret = -1;
-    if (alink_ssl_mutex == NULL) alink_ssl_mutex = platform_mutex_init();
+    if (alink_ssl_mutex == NULL) {
+        alink_ssl_mutex = platform_mutex_init();
+    }
     platform_mutex_lock(alink_ssl_mutex);
 
     ctx = SSL_CTX_new(TLSv1_1_client_method());
@@ -74,7 +76,9 @@ err_exit:
         SSL_CTX_free(ctx);
         ctx = NULL;
     }
-    if (ssl) platform_ssl_close(ssl);
+    if (ssl) {
+        platform_ssl_close(ssl);
+    }
     return NULL;
 }
 
@@ -86,7 +90,9 @@ int platform_ssl_send(_IN_ void *ssl, _IN_ const char *buffer, _IN_ int length)
     ALINK_ERROR_CHECK(ssl == NULL, ALINK_ERR, "Parameter error, ssl:%p", ssl);
 
     alink_err_t ret;
-    if (alink_ssl_mutex == NULL) alink_ssl_mutex = platform_mutex_init();
+    if (alink_ssl_mutex == NULL) {
+        alink_ssl_mutex = platform_mutex_init();
+    }
     platform_mutex_lock(alink_ssl_mutex);
     ALINK_LOGV("SSL_write start");
     ret = SSL_write((SSL *)ssl, buffer, length);
@@ -101,14 +107,18 @@ int platform_ssl_recv(_IN_ void *ssl, _OUT_ char *buffer, _IN_ int length)
     ALINK_PARAM_CHECK(ssl == NULL);
     ALINK_PARAM_CHECK(buffer == NULL);
     int ret = -1;
-    if (alink_ssl_mutex == NULL) alink_ssl_mutex = platform_mutex_init();
+    if (alink_ssl_mutex == NULL) {
+        alink_ssl_mutex = platform_mutex_init();
+    }
     platform_mutex_lock(alink_ssl_mutex);
     ALINK_LOGV("SSL_read start");
-    ret = SSL_read((SSL*)ssl, buffer, length);
+    ret = SSL_read((SSL *)ssl, buffer, length);
     ALINK_LOGV("SSL_read end");
     platform_mutex_unlock(alink_ssl_mutex);
 
-    if (ret <= 0) perror("SSL_read");
+    if (ret <= 0) {
+        perror("SSL_read");
+    }
     ALINK_ERROR_CHECK(ret <= 0, ALINK_ERR, "SSL_read, ret:%d, errno:%d", ret, errno);
     return ret;
 }
@@ -117,7 +127,9 @@ int platform_ssl_close(_IN_ void *ssl)
 {
     ALINK_PARAM_CHECK(ssl == NULL);
     alink_err_t ret = -1;
-    if (alink_ssl_mutex == NULL) alink_ssl_mutex = platform_mutex_init();
+    if (alink_ssl_mutex == NULL) {
+        alink_ssl_mutex = platform_mutex_init();
+    }
     platform_mutex_lock(alink_ssl_mutex);
     ret = SSL_shutdown((SSL *)ssl);
 
@@ -137,8 +149,11 @@ int platform_ssl_close(_IN_ void *ssl)
         ctx = NULL;
     }
 
-    if (fd >= 0) close(fd);
-    else ALINK_LOGE("SSL_get_fd:%d", fd);
+    if (fd >= 0) {
+        close(fd);
+    } else {
+        ALINK_LOGE("SSL_get_fd:%d", fd);
+    }
     platform_mutex_unlock(alink_ssl_mutex);
 
     return (ret == pdTRUE) ? ALINK_OK : ALINK_ERR;

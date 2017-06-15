@@ -151,6 +151,6 @@ alink_err_t alink_factory_setting();
  *
  * @param arg [description]
  */
-void alink_key_trigger(void* arg);
+void alink_key_trigger(void *arg);
 
 #endif

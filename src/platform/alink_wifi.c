@@ -64,11 +64,12 @@ void platform_awss_switch_channel(char primary_channel,
     //ret = system(buf);
 }
 
-static void IRAM_ATTR  wifi_sniffer_cb_(void *recv_buf, wifi_promiscuous_pkt_type_t type) {
+static void IRAM_ATTR  wifi_sniffer_cb_(void *recv_buf, wifi_promiscuous_pkt_type_t type)
+{
     char *buf = NULL;
     uint16_t len = 0;
     // if (type == WIFI_PKT_CTRL) return;
-    wifi_promiscuous_pkt_t *sniffer = (wifi_promiscuous_pkt_t*)recv_buf;
+    wifi_promiscuous_pkt_t *sniffer = (wifi_promiscuous_pkt_t *)recv_buf;
     buf = (char *)sniffer->payload;
     len = sniffer->rx_ctrl.sig_len;
     g_sniffer_cb(buf, len, AWSS_LINK_TYPE_NONE, 1);
@@ -182,11 +183,17 @@ int platform_awss_connect_ap(
     ESP_ERROR_CHECK( esp_wifi_start() );
 
     BaseType_t err = xSemaphoreTake(xSemConnet, connection_timeout_ms / portTICK_RATE_MS);
-    if (err != pdTRUE) ESP_ERROR_CHECK( esp_wifi_stop() );
+    if (err != pdTRUE) {
+        ESP_ERROR_CHECK( esp_wifi_stop() );
+    }
     ALINK_ERROR_CHECK(err != pdTRUE, ALINK_ERR, "xSemaphoreTake ret:%x wait: %d", err, connection_timeout_ms);
-    if (!strcmp(ssid, "aha")) return ALINK_OK;
+    if (!strcmp(ssid, "aha")) {
+        return ALINK_OK;
+    }
     err = alink_info_save(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
-    if (err < 0) ALINK_LOGE("alink information save failed");
+    if (err < 0) {
+        ALINK_LOGE("alink information save failed");
+    }
     return ALINK_OK;
 }
 
@@ -249,10 +256,13 @@ static void ssc_vnd_filter_cb(void *ctx, wifi_vendor_ie_type_t type,
  */
 int platform_wifi_enable_mgnt_frame_filter(_IN_ uint32_t filter_mask,
         _IN_OPT_ uint8_t vendor_oui[3], _IN_
-        platform_wifi_mgnt_frame_cb_t callback) {
+        platform_wifi_mgnt_frame_cb_t callback)
+{
 
     alink_err_t ret = 0;
-    if (filter_mask < 1) return -2;
+    if (filter_mask < 1) {
+        return -2;
+    }
 
     g_callback = callback;
     memcpy(g_vendor_oui, vendor_oui, sizeof(g_vendor_oui));
@@ -324,8 +334,8 @@ typedef struct {
 } platform_aes_t;
 
 p_aes128_t platform_aes128_init(
-    _IN_ const uint8_t* key,
-    _IN_ const uint8_t* iv,
+    _IN_ const uint8_t *key,
+    _IN_ const uint8_t *iv,
     _IN_ AES_DIR_t dir)
 {
     ALINK_PARAM_CHECK(!key);
@@ -333,7 +343,7 @@ p_aes128_t platform_aes128_init(
 
     alink_err_t ret = 0;
     platform_aes_t *p_aes128 = NULL;
-    p_aes128 = (platform_aes_t*)calloc(1, sizeof(platform_aes_t));
+    p_aes128 = (platform_aes_t *)calloc(1, sizeof(platform_aes_t));
     ALINK_ERROR_CHECK(!p_aes128, NULL, "calloc");
 
     mbedtls_aes_init(&p_aes128->ctx);
@@ -343,7 +353,9 @@ p_aes128_t platform_aes128_init(
         ret = mbedtls_aes_setkey_dec(&p_aes128->ctx, key, 128);
     }
 
-    if (ret != ALINK_OK) free(p_aes128);
+    if (ret != ALINK_OK) {
+        free(p_aes128);
+    }
     ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "mbedtls_aes_setkey_enc");
 
     memcpy(p_aes128->iv, iv, 16);
@@ -472,17 +484,25 @@ int platform_wifi_get_ap_info(
     memset(&ap_info, 0, sizeof(wifi_ap_record_t));
     ESP_ERROR_CHECK(esp_wifi_sta_get_ap_info(&ap_info));
 
-    if (ssid) memcpy(ssid, ap_info.ssid, PLATFORM_MAX_SSID_LEN);
-    if (bssid) memcpy(bssid, ap_info.bssid, ETH_ALEN);
+    if (ssid) {
+        memcpy(ssid, ap_info.ssid, PLATFORM_MAX_SSID_LEN);
+    }
+    if (bssid) {
+        memcpy(bssid, ap_info.bssid, ETH_ALEN);
+    }
 
     wifi_config_t wifi_config;
     ret = alink_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
     ALINK_ERROR_CHECK(ret <= 0, ALINK_ERR, "alink_read_wifi_config");
     if (!memcmp(ap_info.ssid, wifi_config.ap.ssid, strlen((char *)ap_info.ssid))) {
-        if (passwd) memcpy(passwd, wifi_config.ap.password, PLATFORM_MAX_PASSWD_LEN);
+        if (passwd) {
+            memcpy(passwd, wifi_config.ap.password, PLATFORM_MAX_PASSWD_LEN);
+        }
     } else {
         ALINK_LOGW("ap_info.ssid: %s, wifi_config.ssid: %s", ap_info.ssid, wifi_config.ap.ssid);
-        if (passwd)  memset(passwd, 0, PLATFORM_MAX_PASSWD_LEN);
+        if (passwd) {
+            memset(passwd, 0, PLATFORM_MAX_PASSWD_LEN);
+        }
     }
 
     return ALINK_OK;

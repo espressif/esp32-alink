@@ -22,7 +22,7 @@
 static const char *TAG = "alink_factory_reset";
 static xQueueHandle gpio_evt_queue = NULL;
 
-void IRAM_ATTR gpio_isr_handler(void* arg)
+void IRAM_ATTR gpio_isr_handler(void *arg)
 {
     uint32_t gpio_num = (uint32_t) arg;
     xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
@@ -50,7 +50,7 @@ void alink_key_init(uint32_t key_gpio_pin)
     //install gpio isr service
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
     //hook isr handler for specific gpio pin
-    gpio_isr_handler_add(key_gpio_pin, gpio_isr_handler, (void*) key_gpio_pin);
+    gpio_isr_handler_add(key_gpio_pin, gpio_isr_handler, (void *) key_gpio_pin);
 }
 
 typedef enum {
@@ -92,7 +92,7 @@ alink_err_t alink_key_scan(TickType_t ticks_to_wait)
     }
 }
 
-void alink_key_trigger(void* arg)
+void alink_key_trigger(void *arg)
 {
     alink_err_t ret = 0;
     alink_key_init(ALINK_RESET_KEY_IO);

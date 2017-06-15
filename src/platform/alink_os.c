@@ -21,8 +21,8 @@
 static const char *TAG = "alink_os";
 
 typedef struct task_name_handler_content {
-    const char* task_name;
-    void * handler;
+    const char *task_name;
+    void *handler;
 } task_infor_t;
 
 typedef enum {
@@ -50,14 +50,16 @@ void platform_printf(const char *fmt, ...)
 /************************ memory manage ************************/
 void *platform_malloc(_IN_ uint32_t size)
 {
-    void * c = malloc(size);
+    void *c = malloc(size);
     ALINK_ERROR_CHECK(c == NULL, NULL, "malloc size : %d", size);
     return c;
 }
 
 void platform_free(_IN_ void *ptr)
 {
-    if (ptr == NULL) return;
+    if (ptr == NULL) {
+        return;
+    }
     free(ptr);
     ptr = NULL;
 }
@@ -160,7 +162,7 @@ int platform_thread_get_stack_size(_IN_ const char *thread_name)
     return -1: not found the name from the list
           !-1: found the pos in the list
 */
-static int get_task_name_location(_IN_ const char * name)
+static int get_task_name_location(_IN_ const char *name)
 {
     uint32_t i = 0;
     uint32_t len = 0;
@@ -173,7 +175,7 @@ static int get_task_name_location(_IN_ const char * name)
     return ALINK_ERR;
 }
 
-static bool set_task_name_handler(uint32_t pos, _IN_ void * handler)
+static bool set_task_name_handler(uint32_t pos, _IN_ void *handler)
 {
     ALINK_PARAM_CHECK(handler == NULL);
     task_infor[pos].handler = handler;
@@ -193,7 +195,9 @@ int platform_thread_create(_OUT_ void **thread,
     alink_err_t ret;
 
     uint8_t task_priority = DEFAULU_TASK_PRIOTY;
-    if (!strcmp(name, "work queue")) task_priority++;
+    if (!strcmp(name, "work queue")) {
+        task_priority++;
+    }
     ret = xTaskCreate((TaskFunction_t)start_routine, name, (stack_size) * 2, arg, task_priority, thread);
     ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "thread_create name: %s, stack_size: %d, ret: %d", name, stack_size, ret);
     ALINK_LOGD("thread_create name: %s, stack_size: %d, priority:%d, thread_handle: %p",

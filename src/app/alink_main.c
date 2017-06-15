@@ -137,18 +137,25 @@ static void alink_event_loop_task(void *pvParameters)
     alink_event_cb_t s_event_handler_cb = (alink_event_cb_t)pvParameters;
     for (;;) {
         alink_event_t event;
-        if (xQueueReceive(xQueueEvent, &event, portMAX_DELAY) != pdPASS) continue;
-        if (!s_event_handler_cb) continue;
+        if (xQueueReceive(xQueueEvent, &event, portMAX_DELAY) != pdPASS) {
+            continue;
+        }
+        if (!s_event_handler_cb) {
+            continue;
+        }
         ret = (*s_event_handler_cb)(event);;
-        if (ret != ALINK_OK) ALINK_LOGW("Event handling failed");
+        if (ret != ALINK_OK) {
+            ALINK_LOGW("Event handling failed");
+        }
     }
     vTaskDelete(NULL);
 }
 
 alink_err_t alink_event_send(alink_event_t event)
 {
-    if (!xQueueEvent)
+    if (!xQueueEvent) {
         xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
+    }
     alink_err_t ret = xQueueSend(xQueueEvent, &event, 0);
     ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "xQueueSendToBack fail!")
     return ALINK_OK;
@@ -160,14 +167,15 @@ alink_err_t alink_event_send(alink_event_t event)
 extern alink_err_t alink_trans_init();
 extern void alink_trans_destroy();
 alink_err_t alink_init(_IN_ const void *product_info,
-                           _IN_ const alink_event_cb_t event_handler_cb)
+                       _IN_ const alink_event_cb_t event_handler_cb)
 {
     ALINK_PARAM_CHECK(!product_info);
     ALINK_PARAM_CHECK(!event_handler_cb);
 
     alink_err_t ret = ALINK_OK;
-    if (!xQueueEvent)
+    if (!xQueueEvent) {
         xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
+    }
     xTaskCreate(alink_event_loop_task, "alink_event_loop_task", EVENT_HANDLER_CB_STACK,
                 event_handler_cb, DEFAULU_TASK_PRIOTY, NULL);
 
@@ -178,7 +186,9 @@ alink_err_t alink_init(_IN_ const void *product_info,
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_connect_ap :%d", ret);
 
     ret = alink_trans_init();
-    if (ret != ALINK_OK) alink_trans_destroy();
+    if (ret != ALINK_OK) {
+        alink_trans_destroy();
+    }
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_trans_init :%d", ret);
 
     unsigned int alink_server_time = 0;

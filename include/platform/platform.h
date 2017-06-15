@@ -313,8 +313,7 @@ void platform_free(_IN_ void *ptr);
 /**
  * @brief this is a network address structure, including host(ip or host name) and port.
  */
-typedef struct
-{
+typedef struct {
     char *host; /**< host ip(dotted-decimal notation) or host name(string) */
     uint16_t port; /**< udp port or tcp port */
 } platform_netaddr_t, *pplatform_netaddr_t;
@@ -1230,8 +1229,8 @@ typedef void *p_aes128_t;
  * @note None.
  */
 p_aes128_t platform_aes128_init(
-    _IN_ const uint8_t* key,
-    _IN_ const uint8_t* iv,
+    _IN_ const uint8_t *key,
+    _IN_ const uint8_t *iv,
     _IN_ AES_DIR_t dir);
 
 /**
