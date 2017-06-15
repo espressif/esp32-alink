@@ -67,7 +67,7 @@ void platform_awss_switch_channel(char primary_channel,
 static void IRAM_ATTR  wifi_sniffer_cb_(void *recv_buf, wifi_promiscuous_pkt_type_t type) {
     char *buf = NULL;
     uint16_t len = 0;
-    if (type == WIFI_PKT_CTRL) return;
+    // if (type == WIFI_PKT_CTRL) return;
     wifi_promiscuous_pkt_t *sniffer = (wifi_promiscuous_pkt_t*)recv_buf;
     buf = (char *)sniffer->payload;
     len = sniffer->rx_ctrl.sig_len;
@@ -184,6 +184,7 @@ int platform_awss_connect_ap(
     BaseType_t err = xSemaphoreTake(xSemConnet, connection_timeout_ms / portTICK_RATE_MS);
     if (err != pdTRUE) ESP_ERROR_CHECK( esp_wifi_stop() );
     ALINK_ERROR_CHECK(err != pdTRUE, ALINK_ERR, "xSemaphoreTake ret:%x wait: %d", err, connection_timeout_ms);
+    if (!strcmp(ssid, "aha")) return ALINK_OK;
     err = alink_info_save(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
     if (err < 0) ALINK_LOGE("alink information save failed");
     return ALINK_OK;
@@ -205,28 +206,27 @@ int platform_awss_connect_ap(
  * @see None.
  * @note awss use this API send raw frame in wifi monitor mode & station mode
  */
-
-static void print_hex(uint8_t *buf, size_t len)
-{
-    printf("len: %d, buffer:\n", len);
-    for (int i = 0; i < len; ++i) {
-        printf("%02x%s", buf[i], (i + 1) % 16 ? ", " : ",\n");
-    }
-    printf("\n");
-}
-
+extern esp_err_t esp_wifi_80211_tx(wifi_interface_t ifx, const void *buffer, int len);
 int platform_wifi_send_80211_raw_frame(_IN_ enum platform_awss_frame_type type,
                                        _IN_ uint8_t *buffer, _IN_ int len)
 {
     ALINK_PARAM_CHECK(!buffer);
-    return -2;
-    // print_hex(buffer, len);
-    // ALINK_LOGI("====== start platform_wifi_send_80211_raw_frame ======");
-    // int ret = 0;
-    // ret = esp_wifi_freedom_tx(ESP_IF_WIFI_STA, buffer, len);
-    // ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_freedom_tx, ret: %d", ret);
-    // ALINK_LOGI("====== end platform_wifi_send_80211_raw_frame ======");
-    // return ALINK_OK;
+    int ret = 0;
+    ret = esp_wifi_80211_tx(ESP_IF_WIFI_STA, buffer, len);
+    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_80211_tx, ret: %d", ret);
+    return ALINK_OK;
+}
+
+
+platform_wifi_mgnt_frame_cb_t g_callback = NULL;
+static uint8_t g_vendor_oui[3];
+static void ssc_vnd_filter_cb(void *ctx, wifi_vendor_ie_type_t type,
+                              const uint8_t sa[6], const uint8_t *vnd_ie, int rssi)
+{
+    ALINK_PARAM_CHECK(!vnd_ie);
+    if (vnd_ie[2] == g_vendor_oui[0] && vnd_ie[3] == g_vendor_oui[1] && vnd_ie[4] == g_vendor_oui[2]) {
+        g_callback((uint8_t *)vnd_ie, (vnd_ie[1] + 2), rssi, 1);
+    }
 }
 
 /**
@@ -247,21 +247,21 @@ int platform_wifi_send_80211_raw_frame(_IN_ enum platform_awss_frame_type type,
  * @see None.
  * @note awss use this API to filter specific mgnt frame in wifi station mode
  */
+int platform_wifi_enable_mgnt_frame_filter(_IN_ uint32_t filter_mask,
+        _IN_OPT_ uint8_t vendor_oui[3], _IN_
+        platform_wifi_mgnt_frame_cb_t callback) {
 
-int platform_wifi_enable_mgnt_frame_filter(
-    _IN_ uint32_t filter_mask,
-    _IN_OPT_ uint8_t vendor_oui[3],
-    _IN_ platform_wifi_mgnt_frame_cb_t callback)
-{
-    return -2;
-    // ALINK_LOGI("====== start platform_wifi_enable_mgnt_frame_filter ======");
-    // int ret = 0;
-    // ret = esp_wifi_enable_mgnt_frame_filter(filter_mask, vendor_oui, callback);
-    // ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_enable_mgnt_frame_filter, ret: %d", ret);
-    // ALINK_LOGI("====== end platform_wifi_enable_mgnt_frame_filter ======");
-    // return ALINK_OK;
+    alink_err_t ret = 0;
+    if (filter_mask < 1) return -2;
+
+    g_callback = callback;
+    memcpy(g_vendor_oui, vendor_oui, sizeof(g_vendor_oui));
+
+    ret = esp_wifi_set_vendor_ie_cb(ssc_vnd_filter_cb, NULL);
+    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_set_vendor_ie, ret: %d", ret);
+
+    return ALINK_OK;
 }
-
 
 /**
  * @brief launch a wifi scan operation
@@ -484,7 +484,6 @@ int platform_wifi_get_ap_info(
         ALINK_LOGW("ap_info.ssid: %s, wifi_config.ssid: %s", ap_info.ssid, wifi_config.ap.ssid);
         if (passwd)  memset(passwd, 0, PLATFORM_MAX_PASSWD_LEN);
     }
-
 
     return ALINK_OK;
 }

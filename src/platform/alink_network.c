@@ -13,7 +13,8 @@
 #include "tcpip_adapter.h"
 #include "esp_alink.h"
 
-#define SOMAXCONN 5
+#define SOMAXCONN            5
+#define ALINK_SOCKET_TIMEOUT 20
 static const char *TAG = "alink_network";
 
 static alink_err_t network_create_socket( pplatform_netaddr_t netaddr, int type, struct sockaddr_in *paddr, int *psock)
@@ -48,6 +49,19 @@ static alink_err_t network_create_socket( pplatform_netaddr_t netaddr, int type,
     int opt_val = 1;
     ret = setsockopt(*psock, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
     ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_REUSEADDR errno: %d", errno);
+
+    if (type == SOCK_DGRAM) {
+        ret = setsockopt(*psock, SOL_SOCKET, SO_BROADCAST, &opt_val, sizeof(opt_val));
+        if (ret != 0) close((int)*psock);
+        ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_BROADCAST errno: %d", errno);
+    }
+
+    struct timeval timeout = {ALINK_SOCKET_TIMEOUT, 0};
+    ret = setsockopt((int) * psock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval));
+    ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_RCVTIMEO errno: %d", errno);
+    ret = setsockopt((int) * psock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval));
+    ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_SNDTIMEO errno: %d", errno);
+    ALINK_LOGD("setsockopt: socket timeout %ds", ALINK_SOCKET_TIMEOUT);
 
     paddr->sin_addr.s_addr = ip;
     paddr->sin_family = AF_INET;
@@ -192,7 +206,7 @@ void *platform_tcp_server_create(_IN_ uint16_t port)
     alink_err_t ret = 0;
     platform_netaddr_t netaddr = {NULL, port};
 
-    ret = network_create_socket(&netaddr, SOCK_DGRAM, &addr, &server_socket);
+    ret = network_create_socket(&netaddr, SOCK_STREAM, &addr, &server_socket);
     ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "network_create_socket");
 
     if (-1 == bind(server_socket, (struct sockaddr *)&addr, sizeof(addr))) {
@@ -251,7 +265,6 @@ int platform_tcp_send(_IN_ void *handle, _IN_ const char *buffer, _IN_ uint32_t 
     int bytes_sent;
 
     bytes_sent = send((int)handle, buffer, length, 0);
-    ALINK_LOGW()
     ALINK_ERROR_CHECK(bytes_sent <= 0, ALINK_ERR, "send ret:%d", bytes_sent);
     return bytes_sent;
 }
@@ -278,23 +291,23 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
                     void *write_fds[PLATFORM_SOCKET_MAXNUMS],
                     int timeout_ms)
 {
-    ALINK_PARAM_CHECK(read_fds == NULL);
-    // ALINK_PARAM_CHECK(write_fds == NULL);
-    int i, ret_code = -1;
+    ALINK_PARAM_CHECK(!read_fds && !write_fds);
+    int i, ret = -1;
     struct timeval timeout_value;
     struct timeval *ptimeval = &timeout_value;
-    fd_set *pfd_read_set, *pfd_write_set;
-
-    if (PLATFORM_WAIT_INFINITE == timeout_ms) {
+    fd_set r_set, w_set;
+    int max_fd = -1;
+    if (PLATFORM_WAIT_INFINITE == timeout_ms)
         ptimeval = NULL;
-    } else {
+    else {
         ptimeval->tv_sec = timeout_ms / 1000;
         ptimeval->tv_usec = (timeout_ms % 1000) * 1000;
     }
-    pfd_read_set = NULL;
-    pfd_write_set = NULL;
 
-    if (NULL != read_fds) {
+    FD_ZERO(&r_set);
+    FD_ZERO(&w_set);
+
+    if (read_fds) {
         if (((int *)read_fds)[1] == 0 && ((int *)read_fds)[2] == 0) {
             ALINK_LOGD("read_fds: %d %d %d %d",
                        ((int *)read_fds)[0], ((int *)read_fds)[1], ((int *)read_fds)[2], ((int *)read_fds)[3]);
@@ -302,65 +315,65 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
             memcpy((int *)read_fds, tmp_fd, sizeof(tmp_fd));
         }
 
-        pfd_read_set = malloc(sizeof(fd_set));
-        if (NULL == pfd_read_set) {
-            ALINK_LOGE("pfd_read_set");
-            goto do_exit;
-        }
-
-        FD_ZERO(pfd_read_set);
-
-        for ( i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i )
-        {
-            if ( PLATFORM_INVALID_FD != read_fds[i] )
-            {
-                FD_SET((int)read_fds[i], pfd_read_set);
+        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
+            if (PLATFORM_INVALID_FD != read_fds[i])
+                FD_SET((int)read_fds[i], &r_set);
+            if ((int)read_fds[i] > max_fd) {
+                max_fd = (int)read_fds[i];
             }
         }
     }
 
-    if (NULL != write_fds)
-    {
-        pfd_write_set = malloc(sizeof(fd_set));
-        if (NULL == pfd_write_set) {
-            ALINK_LOGE("pfd_write_set");
-            goto do_exit;
-        }
-
-        FD_ZERO(pfd_write_set);
-
-        for ( i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i ) {
-            if ( PLATFORM_INVALID_FD != write_fds[i] ) {
-                FD_SET((int)write_fds[i], pfd_write_set);
+    if (write_fds) {
+        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
+            if ( PLATFORM_INVALID_FD != write_fds[i] )
+                FD_SET((int)write_fds[i], &w_set);
+            if ((int)write_fds[i] > max_fd) {
+                max_fd = (int)write_fds[i];
             }
         }
     }
-    ret_code = select(FD_SETSIZE, pfd_read_set, pfd_write_set, NULL, ptimeval);
-    if (ret_code >= 0) {
-        if (NULL != read_fds) {
-            for ( i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i ) {
+
+    ret = select(max_fd + 1, &r_set, &w_set, NULL, ptimeval);
+    if (ret > 0) {
+        if (read_fds) {
+            for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
                 if (PLATFORM_INVALID_FD != read_fds[i]
-                        && !FD_ISSET((int)read_fds[i], pfd_read_set)) {
-
+                        && !FD_ISSET((int)read_fds[i], &r_set))
                     read_fds[i] = PLATFORM_INVALID_FD;
-                }
             }
         }
 
-        if (NULL != write_fds) {
-            for ( i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i ) {
+        if (write_fds) {
+            for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
                 if (PLATFORM_INVALID_FD != write_fds[i]
-                        && !FD_ISSET((int)write_fds[i], pfd_write_set)) {
+                        && !FD_ISSET((int)write_fds[i], &w_set))
                     write_fds[i] = PLATFORM_INVALID_FD;
-                }
             }
+        }
+    } else {/* clear all fd */
+        if (read_fds) {
+            for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i)
+                read_fds[i] = PLATFORM_INVALID_FD;
+        }
+
+        if (write_fds) {
+            for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i)
+                write_fds[i] = PLATFORM_INVALID_FD;
         }
     }
 
-do_exit:
-    if (pfd_read_set) free(pfd_read_set);
-    if (pfd_write_set) free(pfd_write_set);
+    if (ret < 0 && read_fds) {
+        printf("read_fds:\n");
+        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i)
+            printf("%d \n", (int)read_fds[i]);
+    }
 
-    ALINK_ERROR_CHECK(ret_code < 0, ret_code, "select ret:%d, errno: %d", ret_code, errno);
-    return ret_code;
+    if (ret < 0 && write_fds) {
+        printf("write_fds:\n");
+        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i)
+            printf("%d \n", (int)write_fds[i]);
+    }
+    ALINK_ERROR_CHECK(ret < 0, ret, "select max_fd: %d, ret:%d, errno: %d", max_fd, ret, errno);
+    return ret;
 }

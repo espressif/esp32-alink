@@ -167,6 +167,6 @@ ssize_t __alink_json_pack(char *json_str, const char *key, int value, int value_
         *(json_str + tmp) = ']';
     }
     // *(json_str + ret) = 0;
-    ret += tmp;
+    ret += tmp + 1;
     return ret;
 }

@@ -38,10 +38,13 @@
 #include <stdio.h>
 #include <string.h>
 #include "esp_alink.h"
+#include "alink_json_parser.h"
 
-#define Method_PostData      "postDeviceData"
-#define Method_PostRawData   "postDeviceRawData"
-#define Method_GetAlinkTime  "getAlinkTime"
+#define Method_PostData     "postDeviceData"
+#define Method_PostRawData  "postDeviceRawData"
+#define Method_GetStatus    "getDeviceStatus"
+#define Method_SetStatus    "setDeviceStatus"
+#define Method_GetAlinkTime "getAlinkTime"
 
 #ifdef ALINK_PASSTHROUGH
 #define ALINK_METHOD_POST     Method_PostRawData
@@ -53,23 +56,26 @@
 #define ALINK_SET_DEVICE_DATA ALINK_SET_DEVICE_STATUS
 #endif /*!< ALINK_PASSTHROUGH */
 
-#define DOWN_CMD_QUEUE_NUM  5
-#define UP_CMD_QUEUE_NUM    5
+#define DOWN_CMD_QUEUE_NUM  3
+#define UP_CMD_QUEUE_NUM    3
 
 static const char *TAG = "alink_trans";
 static alink_err_t post_data_enable     = ALINK_TRUE;
 static xQueueHandle xQueueDownCmd       = NULL;
-xQueueHandle xQueueUpCmd         = NULL;
+static xQueueHandle xQueueUpCmd         = NULL;
 
-
-#define alink_free(arg) if(arg) {free(arg); arg = NULL;}
+#define alink_free(arg) do{if(arg) {free(arg); arg = NULL;}}while(0)
 
 static alink_err_t cloud_get_device_data(_IN_ char *json_buffer)
 {
     ALINK_PARAM_CHECK(!json_buffer);
     alink_event_send(ALINK_EVENT_GET_DEVICE_DATA);
     alink_err_t ret = ALINK_OK;
-    int size = strlen(json_buffer) + 1;
+
+    ret = alink_json_pack(json_buffer, "method", Method_GetStatus);
+    ALINK_ERROR_CHECK(ret < 0, ALINK_ERR, "alink_json_pack, ret:%d", ret);
+
+    int size = ret + 1;
     char *q_data = (char *)malloc(size);
     if (size > ALINK_DATA_LEN) ALINK_LOGW("json_buffer len:%d", size);
     memcpy(q_data, json_buffer, size);
@@ -87,7 +93,11 @@ static alink_err_t cloud_set_device_data(_IN_ char *json_buffer)
     ALINK_PARAM_CHECK(!json_buffer);
     alink_event_send(ALINK_EVENT_SET_DEVICE_DATA);
     alink_err_t ret = ALINK_OK;
-    int size = strlen(json_buffer) + 1;
+
+    ret = alink_json_pack(json_buffer, "method", Method_SetStatus);
+    ALINK_ERROR_CHECK(ret < 0, ALINK_ERR, "alink_json_pack, ret:%d", ret);
+
+    int size = ret + 1;
     char *q_data = (char *)malloc(size);
     if (size > ALINK_DATA_LEN) ALINK_LOGW("json_buffer len:%d", size);
     memcpy(q_data, json_buffer, size);
@@ -111,7 +121,7 @@ static void alink_post_data(void *arg)
             continue;
         }
 
-        // ALINK_LOGW("up_cmd: %s", up_cmd);
+        // ALINK_LOGD("up_cmd: %s", up_cmd);
         ret = alink_report(ALINK_METHOD_POST, up_cmd);
         if (ret != ALINK_OK) {
             ALINK_LOGW("post failed!");
@@ -140,8 +150,8 @@ alink_err_t alink_trans_init()
     post_data_enable = ALINK_TRUE;
     xQueueUpCmd      = xQueueCreate(DOWN_CMD_QUEUE_NUM, sizeof(char *));
     xQueueDownCmd    = xQueueCreate(UP_CMD_QUEUE_NUM, sizeof(char *));
-    alink_set_loglevel(ALINK_LL_TRACE);
-    // alink_set_loglevel(ALINK_LL_DEBUG);
+    // alink_set_loglevel(ALINK_LL_TRACE);
+    alink_set_loglevel(ALINK_LL_DEBUG);
     // alink_set_loglevel(ALINK_LL_INFO);
 
     alink_register_callback(ALINK_CLOUD_CONNECTED, &cloud_connected);
@@ -168,7 +178,6 @@ void alink_trans_destroy()
     vQueueDelete(xQueueDownCmd);
 }
 
-
 #ifdef ALINK_PASSTHROUGH
 #define RawDataHeader   "{\"rawData\":\""
 #define RawDataTail     "\", \"length\":\"%d\"}"
@@ -176,6 +185,7 @@ ssize_t alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
 {
     ALINK_PARAM_CHECK(up_cmd == NULL);
     ALINK_PARAM_CHECK(len == 0 || len > ALINK_DATA_LEN);
+    if(!xQueueUpCmd) return ALINK_ERR;
 
     int i = 0;
     alink_err_t ret = ALINK_OK;
@@ -198,7 +208,6 @@ ssize_t alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
     } else {
         ret = size;
     }
-
     return ret;
 }
 
@@ -228,6 +237,7 @@ ssize_t alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
 {
     ALINK_PARAM_CHECK(down_cmd == NULL);
     ALINK_PARAM_CHECK(size == 0 || size > ALINK_DATA_LEN);
+    if(!xQueueDownCmd) return ALINK_ERR;
 
     alink_err_t ret = ALINK_OK;
     char *q_data = NULL;
@@ -260,6 +270,7 @@ ssize_t alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
 {
     ALINK_PARAM_CHECK(up_cmd == NULL);
     ALINK_PARAM_CHECK(len == 0 || len > ALINK_DATA_LEN);
+    if(!xQueueUpCmd) return ALINK_ERR;
 
     alink_err_t ret = ALINK_OK;
     char *q_data = (char *)malloc(ALINK_DATA_LEN);
@@ -278,8 +289,9 @@ ssize_t alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
 {
     ALINK_PARAM_CHECK(down_cmd == NULL);
     ALINK_PARAM_CHECK(size == 0 || size > ALINK_DATA_LEN);
-    alink_err_t ret = ALINK_OK;
+    if(!xQueueDownCmd) return ALINK_ERR;
 
+    alink_err_t ret = ALINK_OK;
     char *q_data = NULL;
     ret = xQueueReceive(xQueueDownCmd, &q_data, micro_seconds / portTICK_PERIOD_MS);
     if (ret == pdFALSE) {

@@ -32,16 +32,7 @@ typedef enum {
 
 task_infor_t task_infor[] = {
     {"wsf_receive_worker", NULL},
-    {"wsf_send_worker", NULL},
-    {"wsf_callback_worker", NULL},
-    {"wsf_worker_thread", NULL},
-    {"fota_thread", NULL},
-    {"cota_thread", NULL},
     {"alcs_thread", NULL},
-    {"alink_main_thread", NULL},
-    {"send_worker", NULL},
-    {"callback_thread", NULL},
-    {"firmware_upgrade_pthread", NULL},
     {"work queue", NULL},
     {NULL, NULL}
 };
@@ -148,22 +139,7 @@ uint32_t platform_get_time_ms(void)
 int platform_thread_get_stack_size(_IN_ const char *thread_name)
 {
     ALINK_PARAM_CHECK(thread_name == NULL);
-    if (0 == strcmp(thread_name, "alink_main_thread")) {
-        ALINK_LOGD("get alink_main_thread");
-        return 0xc00;
-    } else if (0 == strcmp(thread_name, "wsf_worker_thread")) {
-        ALINK_LOGD("get wsf_worker_thread");
-        return 0x2100;
-    } else if (0 == strcmp(thread_name, "firmware_upgrade_pthread")) {
-        ALINK_LOGD("get firmware_upgrade_pthread");
-        return 0xc00;
-    } else if (0 == strcmp(thread_name, "send_worker")) {
-        ALINK_LOGD("get send_worker");
-        return 0x800;
-    } else if (0 == strcmp(thread_name, "callback_thread")) {
-        ALINK_LOGD("get callback_thread");
-        return 0x800;
-    } else if (0 == strcmp(thread_name, "work queue")) {
+    if (0 == strcmp(thread_name, "work queue")) {
         ALINK_LOGD("get work queue");
         return 0x800;
     }  else if (0 == strcmp(thread_name, "wsf_receive_worker")) {
@@ -176,7 +152,6 @@ int platform_thread_get_stack_size(_IN_ const char *thread_name)
         ALINK_LOGE("get othrer thread: %s", thread_name);
         return 0x800;
     }
-    esp_restart();;
 }
 
 /************************ task ************************/
@@ -217,16 +192,12 @@ int platform_thread_create(_OUT_ void **thread,
     ALINK_PARAM_CHECK(stack_size == 0);
     alink_err_t ret;
 
-    // if (pdTRUE == xTaskCreatePinnedToCore((TaskFunction_t)start_routine, name, stack_size * 2, arg, DEFAULU_TASK_PRIOTY, thread, 0)) {
-    ALINK_LOGD("thread_create name: %s, stack_size: %d, priority:%d",
-               name, stack_size * 2, DEFAULU_TASK_PRIOTY);
-    if (strcmp(name, "work queue") == 0) {
-        ALINK_LOGW("=============== work queue ==================");
-        ret = xTaskCreate((TaskFunction_t)start_routine, name, stack_size * 2, arg, 12, thread);
-    } else {
-        ret = xTaskCreate((TaskFunction_t)start_routine, name, stack_size * 2, arg, DEFAULU_TASK_PRIOTY, thread);
-    }
-    ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "thread_create name: %s, stack_size: %d, ret: %d", name, stack_size * 2, ret);
+    uint8_t task_priority = DEFAULU_TASK_PRIOTY;
+    if (!strcmp(name, "work queue")) task_priority++;
+    ret = xTaskCreate((TaskFunction_t)start_routine, name, (stack_size) * 2, arg, task_priority, thread);
+    ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "thread_create name: %s, stack_size: %d, ret: %d", name, stack_size, ret);
+    ALINK_LOGD("thread_create name: %s, stack_size: %d, priority:%d, thread_handle: %p",
+               name, stack_size * 2, task_priority, *thread);
 
     int pos = get_task_name_location(name);
     if (pos == ALINK_ERR) {
