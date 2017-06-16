@@ -21,8 +21,8 @@
 static const char *TAG = "alink_os";
 
 typedef struct task_name_handler_content {
-    const char* task_name;
-    void * handler;
+    const char *task_name;
+    void *handler;
 } task_infor_t;
 
 typedef enum {
@@ -32,16 +32,7 @@ typedef enum {
 
 task_infor_t task_infor[] = {
     {"wsf_receive_worker", NULL},
-    {"wsf_send_worker", NULL},
-    {"wsf_callback_worker", NULL},
-    {"wsf_worker_thread", NULL},
-    {"fota_thread", NULL},
-    {"cota_thread", NULL},
     {"alcs_thread", NULL},
-    {"alink_main_thread", NULL},
-    {"send_worker", NULL},
-    {"callback_thread", NULL},
-    {"firmware_upgrade_pthread", NULL},
     {"work queue", NULL},
     {NULL, NULL}
 };
@@ -59,14 +50,16 @@ void platform_printf(const char *fmt, ...)
 /************************ memory manage ************************/
 void *platform_malloc(_IN_ uint32_t size)
 {
-    void * c = malloc(size);
+    void *c = malloc(size);
     ALINK_ERROR_CHECK(c == NULL, NULL, "malloc size : %d", size);
     return c;
 }
 
 void platform_free(_IN_ void *ptr)
 {
-    if (ptr == NULL) return;
+    if (ptr == NULL) {
+        return;
+    }
     free(ptr);
     ptr = NULL;
 }
@@ -90,6 +83,7 @@ void platform_mutex_destroy(_IN_ void *mutex)
 
 void platform_mutex_lock(_IN_ void *mutex)
 {
+    ALINK_PARAM_CHECK(mutex == NULL);
     //if can not get the mux,it will wait all the time
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreTake(mutex, portMAX_DELAY);
@@ -97,6 +91,7 @@ void platform_mutex_lock(_IN_ void *mutex)
 
 void platform_mutex_unlock(_IN_ void *mutex)
 {
+    ALINK_PARAM_CHECK(mutex == NULL);
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreGive(mutex);
 }
@@ -146,32 +141,19 @@ uint32_t platform_get_time_ms(void)
 int platform_thread_get_stack_size(_IN_ const char *thread_name)
 {
     ALINK_PARAM_CHECK(thread_name == NULL);
-    if (0 == strcmp(thread_name, "alink_main_thread")) {
-        ALINK_LOGD("get alink_main_thread");
-        return 0xc00;
-    } else if (0 == strcmp(thread_name, "wsf_worker_thread")) {
-        ALINK_LOGD("get wsf_worker_thread");
-        return 0x2100;
-    } else if (0 == strcmp(thread_name, "firmware_upgrade_pthread")) {
-        ALINK_LOGD("get firmware_upgrade_pthread");
-        return 0xc00;
-    } else if (0 == strcmp(thread_name, "send_worker")) {
-        ALINK_LOGD("get send_worker");
-        return 0x800;
-    } else if (0 == strcmp(thread_name, "callback_thread")) {
-        ALINK_LOGD("get callback_thread");
-        return 0x800;
-    } else if (0 == strcmp(thread_name, "work queue")) {
+    if (0 == strcmp(thread_name, "work queue")) {
         ALINK_LOGD("get work queue");
         return 0x800;
     }  else if (0 == strcmp(thread_name, "wsf_receive_worker")) {
         ALINK_LOGD("get wsf_receive_worker");
         return 0x800;
+    }  else if (0 == strcmp(thread_name, "alcs_thread")) {
+        ALINK_LOGD("get alcs_thread");
+        return 0x800;
     } else {
         ALINK_LOGE("get othrer thread: %s", thread_name);
         return 0x800;
     }
-    esp_restart();;
 }
 
 /************************ task ************************/
@@ -180,7 +162,7 @@ int platform_thread_get_stack_size(_IN_ const char *thread_name)
     return -1: not found the name from the list
           !-1: found the pos in the list
 */
-static int get_task_name_location(_IN_ const char * name)
+static int get_task_name_location(_IN_ const char *name)
 {
     uint32_t i = 0;
     uint32_t len = 0;
@@ -193,7 +175,7 @@ static int get_task_name_location(_IN_ const char * name)
     return ALINK_ERR;
 }
 
-static bool set_task_name_handler(uint32_t pos, _IN_ void * handler)
+static bool set_task_name_handler(uint32_t pos, _IN_ void *handler)
 {
     ALINK_PARAM_CHECK(handler == NULL);
     task_infor[pos].handler = handler;
@@ -212,11 +194,14 @@ int platform_thread_create(_OUT_ void **thread,
     ALINK_PARAM_CHECK(stack_size == 0);
     alink_err_t ret;
 
-    // if (pdTRUE == xTaskCreatePinnedToCore((TaskFunction_t)start_routine, name, stack_size * 2, arg, DEFAULU_TASK_PRIOTY, thread, 0)) {
-    ALINK_LOGD("thread_create name: %s, stack_size: %d, priority:%d",
-               name, stack_size * 2, DEFAULU_TASK_PRIOTY);
-    ret = xTaskCreate((TaskFunction_t)start_routine, name, stack_size * 2, arg, DEFAULU_TASK_PRIOTY, thread);
-    ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "thread_create name: %s, stack_size: %d, ret: %d", name, stack_size * 2, ret);
+    uint8_t task_priority = DEFAULU_TASK_PRIOTY;
+    if (!strcmp(name, "work queue")) {
+        task_priority++;
+    }
+    ret = xTaskCreate((TaskFunction_t)start_routine, name, (stack_size) * 2, arg, task_priority, thread);
+    ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "thread_create name: %s, stack_size: %d, ret: %d", name, stack_size, ret);
+    ALINK_LOGD("thread_create name: %s, stack_size: %d, priority:%d, thread_handle: %p",
+               name, stack_size * 2, task_priority, *thread);
 
     int pos = get_task_name_location(name);
     if (pos == ALINK_ERR) {
@@ -234,6 +219,12 @@ void platform_thread_exit(_IN_ void *thread)
 
 
 /************************ config ************************/
+const char *platform_get_storage_directory(void)
+{
+    ALINK_LOGE("------------------platform_get_storage_directory--------------------");
+    return NULL;
+}
+
 int platform_config_read(_OUT_ char *buffer, _IN_ int length)
 {
     ALINK_PARAM_CHECK(buffer == NULL);
@@ -250,12 +241,13 @@ int platform_config_read(_OUT_ char *buffer, _IN_ int length)
 
     if (ret == ESP_ERR_NVS_NOT_FOUND) {
         ALINK_LOGD("nvs_get_blob ret:%x,No data storage,the read data is empty", ret);
+        memset(buffer, 0, length);
         return ALINK_ERR;
     }
     ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_get_blob ret:%x", ret);
     ALINK_LOGD("platform_config_read: %02x %02x %02x length: %d",
                buffer[0], buffer[1], buffer[2], length);
-    return 0;
+    return ALINK_OK;
 }
 
 int platform_config_write(_IN_ const char *buffer, _IN_ int length)
@@ -273,9 +265,8 @@ int platform_config_write(_IN_ const char *buffer, _IN_ int length)
     nvs_commit(config_handle);
     nvs_close(config_handle);
     ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_set_blob ret:%x", ret);
-    return 0;
+    return ALINK_OK;
 }
-
 
 char *platform_get_chipid(_OUT_ char cid_str[PLATFORM_CID_LEN])
 {
@@ -284,37 +275,22 @@ char *platform_get_chipid(_OUT_ char cid_str[PLATFORM_CID_LEN])
     return cid_str;
 }
 
-char *platform_get_os_version(_OUT_ char version_str[PLATFORM_OS_VERSION_LEN])
+char *platform_get_os_version(_OUT_ char version_str[STR_SHORT_LEN])
 {
     ALINK_PARAM_CHECK(version_str == NULL);
     const char *idf_version = esp_get_idf_version();
-    memcpy(version_str, idf_version, PLATFORM_OS_VERSION_LEN);
+    memcpy(version_str, idf_version, STR_SHORT_LEN);
     return version_str;
 }
 
-char *platform_get_module_name(_OUT_ char name_str[PLATFORM_MODULE_NAME_LEN])
+char *platform_get_module_name(_OUT_ char name_str[STR_SHORT_LEN])
 {
     ALINK_PARAM_CHECK(name_str == NULL);
-    memcpy(name_str, MODULE_NAME, PLATFORM_MODULE_NAME_LEN);
+    memcpy(name_str, MODULE_NAME, STR_SHORT_LEN);
     return name_str;
 }
 
 void platform_sys_reboot(void)
 {
     esp_restart();
-}
-
-
-/**
- * @brief release the specified thread resource.
- *
- * @param[in] thread: the specified thread handle.
- * @return None.
- * @see None.
- * @note Called outside of the thread. The resource that must be kept until thread exit completely
- *  can be released here, such as thread stack.
- */
-void platform_thread_release_resources(void *thread)
-{
-
 }

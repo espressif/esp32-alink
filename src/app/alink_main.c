@@ -1,90 +1,151 @@
-
-/*
- * Copyright (c) 2014-2015 Alibaba Group. All rights reserved.
+/******************************************************************************
+ * Copyright (C) 2014 -2016  Espressif System
  *
- * Alibaba Group retains all right, title and interest (including all
- * intellectual property rights) in and to this computer program, which is
- * protected by applicable intellectual property laws.  Unless you have
- * obtained a separate written license from Alibaba Group., you are not
- * authorized to utilize all or a part of this computer program for any
- * purpose (including reproduction, distribution, modification, and
- * compilation into object code), and you must immediately destroy or
- * return to Alibaba Group all copies of this computer program.  If you
- * are licensed by Alibaba Group, your rights to utilize this computer
- * program are limited by the terms of that license.  To obtain a license,
- * please contact Alibaba Group.
+ * FileName: app_main.c
  *
- * This computer program contains trade secrets owned by Alibaba Group.
- * and, unless unauthorized by Alibaba Group in writing, you agree to
- * maintain the confidentiality of this computer program and related
- * information and to not disclose this computer program and related
- * information to any other person or entity.
+ * Description:
  *
- * THIS COMPUTER PROGRAM IS PROVIDED AS IS WITHOUT ANY WARRANTIES, AND
- * Alibaba Group EXPRESSLY DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED,
- * INCLUDING THE WARRANTIES OF MERCHANTIBILITY, FITNESS FOR A PARTICULAR
- * PURPOSE, TITLE, AND NONINFRINGEMENT.
- */
-#include "platform/platform.h"
-#include "product/product.h"
+ * Modification history:
+ * 2016/11/16, v0.0.1 create this file.
+*******************************************************************************/
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "lwip/sockets.h"
+
+#include "esp_event_loop.h"
+#include "esp_wifi.h"
+#include "esp_err.h"
 #include "esp_system.h"
+#include "esp_log.h"
 
-#include "alink_export.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "string.h"
 #include "esp_alink.h"
-
-#define Method_PostData      "postDeviceData"
-#define Method_PostRawData   "postDeviceRawData"
-#define Method_GetAlinkTime  "getAlinkTime"
-
-#ifdef ALINK_PASSTHROUGH
-#define ALINK_METHOD_POST     Method_PostRawData
-#define ALINK_GET_DEVICE_DATA ALINK_GET_DEVICE_RAWDATA
-#define ALINK_SET_DEVICE_DATA ALINK_SET_DEVICE_RAWDATA
-#else
-#define ALINK_METHOD_POST     Method_PostData
-#define ALINK_GET_DEVICE_DATA ALINK_GET_DEVICE_STATUS
-#define ALINK_SET_DEVICE_DATA ALINK_SET_DEVICE_STATUS
-#endif
-
-#define DOWN_CMD_QUEUE_NUM  5
-#define UP_CMD_QUEUE_NUM    5
-#define EVENT_QUEUE_NUM     3
+#include "alink_info_store.h"
+#include "esp_partition.h"
+#include "product.h"
 
 static const char *TAG = "alink_main";
-static alink_err_t post_data_enable        = ALINK_TRUE;
-static xQueueHandle xQueueDownCmd          = NULL;
-static xQueueHandle xQueueUpCmd            = NULL;
-static SemaphoreHandle_t xSemWrite         = NULL;
-static SemaphoreHandle_t xSemRead          = NULL;
-static SemaphoreHandle_t xSemDownCmd       = NULL;
-static xQueueHandle xQueueEvent            = NULL;
-static alink_event_cb_t s_event_handler_cb = NULL;
 
-static alink_err_t alink_event_post_to_user(alink_event_t event)
+/**
+ * @brief  Clear wifi information, restart the device into the config network mode
+ */
+alink_err_t alink_update_router()
 {
-    if (s_event_handler_cb) {
-        return (*s_event_handler_cb)(event);
+    int ret = 0;
+    ALINK_LOGI("clear wifi config");
+    ret = alink_info_erase(NVS_KEY_WIFI_CONFIG);
+    ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "alink_erase");
+    ALINK_LOGI("The system is about to be restarted");
+    esp_restart();
+    return ALINK_OK;
+}
+
+
+static alink_err_t alink_connect_ap()
+{
+    alink_err_t ret = ALINK_ERR;
+    wifi_config_t wifi_config;
+
+    ret = alink_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
+    if (ret > 0) {
+        if (platform_awss_connect_ap(WIFI_WAIT_TIME, (char *)wifi_config.sta.ssid, (char *)wifi_config.sta.password,
+                                     0, 0, wifi_config.sta.bssid, 0) == ALINK_OK) {
+            return ALINK_OK;
+        }
+    }
+
+    alink_err_t alink_event_send(alink_event_t event);
+    alink_event_send(ALINK_EVENT_CONFIG_NETWORK);
+    ALINK_LOGI("*********************************");
+    ALINK_LOGI("*    ENTER SAMARTCONFIG MODE    *");
+    ALINK_LOGI("*********************************");
+    ret = awss_start();
+    if (ret != ALINK_OK) {
+        ALINK_LOGI("awss_start is err ret: %d", ret);
+        esp_restart();
     }
     return ALINK_OK;
 }
 
+/**
+ * @brief Clear all the information of the device and return to the factory status
+ */
+alink_err_t alink_factory_setting()
+{
+    /* clear ota data  */
+    ALINK_LOGI("*********************************");
+    ALINK_LOGI("*          FACTORY RESET        *");
+    ALINK_LOGI("*********************************");
+    ALINK_LOGI("clear wifi config");
+    alink_err_t err;
+    err = alink_info_erase(ALINK_SPACE_NAME);
+    ALINK_ERROR_CHECK(err != 0, ALINK_ERR, "alink_erase_wifi_config");
+
+    esp_partition_t find_partition;
+    memset(&find_partition, 0, sizeof(esp_partition_t));
+    find_partition.type = ESP_PARTITION_TYPE_DATA;
+    find_partition.subtype = ESP_PARTITION_SUBTYPE_DATA_OTA;
+
+    const esp_partition_t *partition = esp_partition_find_first(find_partition.type, find_partition.subtype, NULL);
+    ALINK_ERROR_CHECK(partition == NULL, ALINK_ERR, "nvs_erase_key partition:%p", partition);
+
+    err = esp_partition_erase_range(partition, 0, partition->size);
+    ALINK_ERROR_CHECK(partition == NULL, ALINK_ERR, "esp_partition_erase_range ret:%d", err);
+
+    if (err != ALINK_OK) {
+        ALINK_LOGE("esp_partition_erase_range ret:%d", err);
+        vTaskDelete(NULL);
+    }
+    ALINK_LOGI("reset user account binding");
+    alink_factory_reset();
+
+    ALINK_LOGI("The system is about to be restarted");
+    esp_restart();
+}
+
+/**
+ * @brief Get time from alink service
+ */
+#define TIME_STR_LEN    (32)
+alink_err_t alink_get_time(unsigned int *utc_time)
+{
+    char buf[TIME_STR_LEN] = { 0 }, *attr_str;
+    int size = TIME_STR_LEN, attr_len = 0;
+    int ret;
+
+    ret = alink_query("getAlinkTime", "{}", buf, &size);
+    if (!ret) {
+        attr_str = json_get_value_by_name(buf, size, "time", &attr_len, NULL);
+        if (attr_str && utc_time) {
+            sscanf(attr_str, "%u", utc_time);
+        }
+    }
+    return ret;
+}
+
+/**
+ * @brief Event management
+ */
+#define EVENT_QUEUE_NUM         3
+static xQueueHandle xQueueEvent = NULL;
 static void alink_event_loop_task(void *pvParameters)
 {
     alink_err_t ret = ALINK_OK;
+    alink_event_cb_t s_event_handler_cb = (alink_event_cb_t)pvParameters;
     for (;;) {
         alink_event_t event;
-        if (xQueueReceive(xQueueEvent, &event, portMAX_DELAY) == pdPASS) {
-            ret = alink_event_post_to_user(event);
-            if (ret != ALINK_OK) {
-                ALINK_LOGE("post event to user fail!");
-            }
+        if (xQueueReceive(xQueueEvent, &event, portMAX_DELAY) != pdPASS) {
+            continue;
+        }
+        if (!s_event_handler_cb) {
+            continue;
+        }
+        ret = (*s_event_handler_cb)(event);;
+        if (ret != ALINK_OK) {
+            ALINK_LOGW("Event handling failed");
         }
     }
     vTaskDelete(NULL);
@@ -92,301 +153,47 @@ static void alink_event_loop_task(void *pvParameters)
 
 alink_err_t alink_event_send(alink_event_t event)
 {
-    if (xQueueEvent == NULL)
+    if (!xQueueEvent) {
         xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
-    if (xQueueSend(xQueueEvent, &event, 0) != pdTRUE) {
-        ALINK_LOGE("xQueueSendToBack fail!");
-        return ALINK_ERR;
     }
+    alink_err_t ret = xQueueSend(xQueueEvent, &event, 0);
+    ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "xQueueSendToBack fail!")
     return ALINK_OK;
 }
 
-static inline void alink_free(_IN_ void *arg)
+/**
+ * @brief Initialize alink config and start alink task
+ */
+extern alink_err_t alink_trans_init();
+extern void alink_trans_destroy();
+alink_err_t alink_init(_IN_ const void *product_info,
+                       _IN_ const alink_event_cb_t event_handler_cb)
 {
-    if (arg == NULL) return;
-    free(arg);
-    arg = NULL;
-}
+    ALINK_PARAM_CHECK(!product_info);
+    ALINK_PARAM_CHECK(!event_handler_cb);
 
-static alink_err_t cloud_get_device_data(_IN_ char *json_buffer)
-{
-    platform_mutex_lock(xSemDownCmd);
-    ALINK_PARAM_CHECK(json_buffer == NULL);
-    alink_event_send(ALINK_EVENT_GET_DEVICE_DATA);
     alink_err_t ret = ALINK_OK;
-    int size = strlen(json_buffer) + 1;
-    char *q_data = (char *)malloc(size);
-    if (size > ALINK_DATA_LEN) ALINK_LOGW("json_buffer len:%d", size);
-    memcpy(q_data, json_buffer, size);
-
-    if (xQueueSend(xQueueDownCmd, &q_data, 0) != pdTRUE) {
-        ALINK_LOGW("xQueueSend xQueueDownCmd is err");
-        ret = ALINK_ERR;
-        alink_free(q_data);
+    if (!xQueueEvent) {
+        xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
     }
+    xTaskCreate(alink_event_loop_task, "alink_event_loop_task", EVENT_HANDLER_CB_STACK,
+                event_handler_cb, DEFAULU_TASK_PRIOTY, NULL);
 
-    platform_mutex_unlock(xSemDownCmd);
-    return ret;
-}
-
-static alink_err_t cloud_set_device_data(_IN_ char *json_buffer)
-{
-    platform_mutex_lock(xSemDownCmd);
-    ALINK_PARAM_CHECK(json_buffer == NULL);
-    alink_event_send(ALINK_EVENT_SET_DEVICE_DATA);
-    alink_err_t ret = ALINK_OK;
-    int size = strlen(json_buffer) + 1;
-    char *q_data = (char *)malloc(size);
-    if (size > ALINK_DATA_LEN) ALINK_LOGW("json_buffer len:%d", size);
-    memcpy(q_data, json_buffer, size);
-
-    if (xQueueSend(xQueueDownCmd, &q_data, 0) != pdTRUE) {
-        ALINK_LOGW("xQueueSend xQueueDownCmd is err");
-        ret = ALINK_ERR;
-        alink_free(q_data);
-    }
-    platform_mutex_unlock(xSemDownCmd);
-    return ret;
-}
-
-static void alink_post_data(void *arg)
-{
-    alink_err_t ret;
-    char *up_cmd = NULL;
-    for (; post_data_enable;) {
-        ret = xQueueReceive(xQueueUpCmd, &up_cmd, portMAX_DELAY);
-        if (ret != pdTRUE) {
-            ALINK_LOGD("There is no data to report");
-            continue;
-        }
-        ret = alink_report(ALINK_METHOD_POST, up_cmd);
-
-        if (ret != ALINK_OK) {
-            ALINK_LOGW("post failed!");
-            platform_msleep(2000);
-        } else {
-            alink_event_send(ALINK_EVENT_POST_CLOUD_DATA);
-        }
-        alink_free(up_cmd);
-    }
-    vTaskDelete(NULL);
-}
-
-static void cloud_connected(void)
-{
-    alink_event_send(ALINK_EVENT_CLOUD_CONNECTED);
-}
-
-static void cloud_disconnected(void)
-{
-    alink_event_send(ALINK_EVENT_CLOUD_DISCONNECTED);
-}
-
-static alink_err_t alink_trans_init()
-{
-    alink_err_t ret = ALINK_OK;
-    post_data_enable = ALINK_TRUE;
-    xSemWrite        = platform_mutex_init();
-    xSemRead         = platform_mutex_init();
-    xSemDownCmd      = platform_mutex_init();
-    xQueueUpCmd      = xQueueCreate(DOWN_CMD_QUEUE_NUM, sizeof(char *));
-    xQueueDownCmd    = xQueueCreate(UP_CMD_QUEUE_NUM, sizeof(char *));
-    alink_set_loglevel(ALINK_LL_DEBUG);
-   // alink_set_loglevel(ALINK_LL_INFO);
-
-    alink_register_callback(ALINK_CLOUD_CONNECTED, &cloud_connected);
-    alink_register_callback(ALINK_CLOUD_DISCONNECTED, &cloud_disconnected);
-    alink_register_callback(ALINK_GET_DEVICE_DATA, &cloud_get_device_data);
-    alink_register_callback(ALINK_SET_DEVICE_DATA, &cloud_set_device_data);
-
-    ret = alink_start();
-    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_start :%d", ret);
-    ALINK_LOGI("wait main device login");
-    /*wait main device login, -1 means wait forever */
-    ret = alink_wait_connect(ALINK_WAIT_FOREVER);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_start :%d", ret);
-    xTaskCreate(alink_post_data, "alink_post_data", 1024 * 4, NULL, DEFAULU_TASK_PRIOTY, NULL);
-    return ret;
-}
-
-void alink_trans_destroy()
-{
-    post_data_enable = ALINK_FALSE;
-    alink_end();
-    platform_mutex_destroy(xSemWrite);
-    platform_mutex_destroy(xSemRead);
-    platform_mutex_destroy(xSemDownCmd);
-    vQueueDelete(xQueueUpCmd);
-    vQueueDelete(xQueueDownCmd);
-    vQueueDelete(xQueueEvent);
-}
-
-extern void factory_reset(void* arg);
-extern alink_err_t alink_connect_ap();
-int esp_alink_init(_IN_ const void *product_info)
-{
-    alink_err_t ret = ALINK_OK;
-    xTaskCreate(factory_reset, "factory_reset", 1024 * 4, NULL, 10, NULL);
     ret = product_set(product_info);
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "product_set :%d", ret);
 
     ret = alink_connect_ap();
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_connect_ap :%d", ret);
-    ret = alink_trans_init(NULL);
-    if (ret != ALINK_OK) alink_trans_destroy();
-    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_trans_init :%d", ret);
-    return ret;
-}
 
-int esp_alink_event_init(_IN_ alink_event_cb_t cb)
-{
-    ALINK_PARAM_CHECK(cb == NULL);
-    s_event_handler_cb = cb;
-    if (xQueueEvent == NULL)
-        xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
-    xTaskCreate(alink_event_loop_task, "alink_event_task",
-                1024 * 2, NULL, DEFAULU_TASK_PRIOTY, NULL);
-    return ALINK_OK;
-}
-
-#ifdef ALINK_PASSTHROUGH
-#define RawDataHeader   "{\"rawData\":\""
-#define RawDataTail     "\", \"length\":\"%d\"}"
-int esp_alink_write(_IN_ void *up_cmd, size_t len, int micro_seconds)
-{
-    platform_mutex_lock(xSemWrite);
-    ALINK_PARAM_CHECK(up_cmd == NULL);
-    ALINK_PARAM_CHECK(len == 0 || len > ALINK_DATA_LEN);
-
-    int i = 0;
-    alink_err_t ret = ALINK_OK;
-    char *q_data = (char *)malloc(ALINK_DATA_LEN);
-
-    int size = strlen(RawDataHeader);
-    strncpy((char *)q_data, RawDataHeader, ALINK_DATA_LEN);
-    for (i = 0; i < len; i++) {
-        size += snprintf((char *)q_data + size,
-                         ALINK_DATA_LEN - size, "%02X", ((uint8_t *)up_cmd)[i]);
-    }
-
-    size += snprintf((char *)q_data + size,
-                     ALINK_DATA_LEN - size, RawDataTail, len * 2);
-
-    ret = xQueueSend(xQueueUpCmd, &q_data, micro_seconds / portTICK_PERIOD_MS);
-    if (ret == pdFALSE) {
-        ALINK_LOGW("xQueueSend xQueueUpCmd, wait_time: %d", micro_seconds);
-        alink_free(q_data);
-    } else {
-        ret = size;
-    }
-
-    platform_mutex_unlock(xSemWrite);
-    return ret;
-}
-
-static alink_err_t raw_data_unserialize(char *json_buffer, uint8_t *raw_data, int *raw_data_len)
-{
-    int attr_len = 0, i = 0;
-    char *attr_str = NULL;
-    assert(json_buffer && raw_data && raw_data_len);
-
-    attr_str = json_get_value_by_name(json_buffer, strlen(json_buffer),
-                                      "rawData", &attr_len, NULL);
-
-    if (!attr_str || !attr_len || attr_len > *raw_data_len * 2)
-        return ALINK_ERR;
-
-    int raw_data_tmp = 0;
-    for (i = 0; i < attr_len; i += 2) {
-        sscanf(&attr_str[i], "%02x", &raw_data_tmp);
-        raw_data[i / 2] = raw_data_tmp;
-    }
-    *raw_data_len = attr_len / 2;
-
-    return ALINK_OK;
-}
-
-int esp_alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
-{
-    platform_mutex_lock(xSemRead);
-    ALINK_PARAM_CHECK(down_cmd == NULL);
-    ALINK_PARAM_CHECK(size == 0 || size > ALINK_DATA_LEN);
-
-    alink_err_t ret = ALINK_OK;
-    char *q_data = NULL;
-    ret = xQueueReceive(xQueueDownCmd, &q_data, micro_seconds / portTICK_PERIOD_MS);
-    if (ret == pdFALSE) {
-        ALINK_LOGE("xQueueReceive xQueueDownCmd, ret:%d, wait_time: %d", ret, micro_seconds);
-        ret = ALINK_ERR;
-        goto EXIT;
-    }
-    if (strlen(q_data) + 1 > ALINK_DATA_LEN) {
-        ALINK_LOGW("read len > ALINK_DATA_LEN, len: %d", strlen(q_data) + 1);
-        ret = ALINK_DATA_LEN;
-        goto EXIT;
-    }
-
-    ret = raw_data_unserialize(q_data, (uint8_t *)down_cmd, (int *)&size);
+    ret = alink_trans_init();
     if (ret != ALINK_OK) {
-        ALINK_LOGW("raw_data_unserialize, ret:%d", ret);
-    } else {
-        ret = size;
+        alink_trans_destroy();
     }
+    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_trans_init :%d", ret);
 
-EXIT:
-    alink_free(q_data);
-    platform_mutex_unlock(xSemRead);
-    return ret;
+    unsigned int alink_server_time = 0;
+    ret = alink_get_time(&alink_server_time);
+    ALINK_LOGD("ret: %d,get alink utc time: %d\n", ret, alink_server_time);
+
+    return ALINK_OK;
 }
-
-#else
-
-int esp_alink_write(_IN_ void *up_cmd, size_t len, int micro_seconds)
-{
-    platform_mutex_lock(xSemWrite);
-    ALINK_PARAM_CHECK(up_cmd == NULL);
-    ALINK_PARAM_CHECK(len == 0 || len > ALINK_DATA_LEN);
-
-    alink_err_t ret = ALINK_OK;
-    char *q_data = (char *)malloc(ALINK_DATA_LEN);
-    memcpy(q_data, up_cmd, len);
-    ret = xQueueSend(xQueueUpCmd, &q_data, micro_seconds / portTICK_PERIOD_MS);
-    if (ret == pdFALSE) {
-        ALINK_LOGW("xQueueSend xQueueUpCmd, wait_time: %d", micro_seconds);
-        alink_free(q_data);
-    } else {
-        ret = len;
-    }
-    platform_mutex_unlock(xSemWrite);
-    return ret;
-}
-
-int esp_alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
-{
-    platform_mutex_lock(xSemRead);
-    ALINK_PARAM_CHECK(down_cmd == NULL);
-    ALINK_PARAM_CHECK(size == 0 || size > ALINK_DATA_LEN);
-    alink_err_t ret = ALINK_OK;
-
-    char *q_data = NULL;
-    ret = xQueueReceive(xQueueDownCmd, &q_data, micro_seconds / portTICK_PERIOD_MS);
-    if (ret == pdFALSE) {
-        ALINK_LOGE("xQueueReceive xQueueDownCmd, ret:%d, wait_time: %d", ret, micro_seconds);
-        ret = ALINK_ERR;
-        goto EXIT;
-    }
-
-    size = strlen(q_data) + 1;
-    if (size > ALINK_DATA_LEN) {
-        ALINK_LOGW("read len > ALINK_DATA_LEN, len: %d", size);
-        size = ALINK_DATA_LEN;
-        q_data[size - 1] = '\0';
-    }
-    memcpy(down_cmd, q_data, size);
-
-EXIT:
-    alink_free(q_data);
-    platform_mutex_unlock(xSemRead);
-    return ret;
-}
-#endif

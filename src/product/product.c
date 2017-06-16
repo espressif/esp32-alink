@@ -78,7 +78,11 @@ char *product_get_debug_secret(char secret_str[PRODUCT_SECRET_LEN])
     return memcpy(secret_str, g_device_info.secret_sandbox, PRODUCT_SECRET_LEN);
 }
 
+#include "esp_wifi.h"
 char *product_get_sn(char sn_str[PRODUCT_SN_LEN])
 {
-    return memcpy(sn_str, g_device_info.sn, PRODUCT_SN_LEN);
+    uint8_t mac[6] = {0};
+    ESP_ERROR_CHECK(esp_wifi_get_mac(ESP_IF_WIFI_STA, mac));
+    snprintf(sn_str, PLATFORM_MAC_LEN, "%02x%02x%02x%02x%02x%02x", MAC2STR(mac));
+    return sn_str;
 }

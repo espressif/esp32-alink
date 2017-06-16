@@ -42,13 +42,13 @@ extern "C"
 #ifdef USE_STDINT_H
 #include <stdint.h>
 #else
-typedef signed   char  int8_t;
-typedef signed   short int16_t;
-typedef signed   int   int32_t;
-typedef unsigned char  uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int   uint32_t;
-typedef unsigned long  long      uint64_t;
+typedef signed char        int8_t;
+typedef signed short       int16_t;
+typedef signed int         int32_t;
+typedef unsigned char      uint8_t;
+typedef unsigned short     uint16_t;
+typedef unsigned int       uint32_t;
+typedef unsigned long long uint64_t;
 #endif
 
 /** @defgroup group_platform platform
@@ -56,12 +56,12 @@ typedef unsigned long  long      uint64_t;
  */
 
 
-#define _IN_            /**< indicate that this is a input parameter. */
-#define _OUT_           /**< indicate that this is a output parameter. */
-#define _INOUT_         /**< indicate that this is a io parameter. */
-#define _IN_OPT_        /**< indicate that this is a optional input parameter. */
-#define _OUT_OPT_       /**< indicate that this is a optional output parameter. */
-#define _INOUT_OPT_     /**< indicate that this is a optional io parameter. */
+#define _IN_      /**< indicate that this is a input parameter. */
+#define _OUT_     /**< indicate that this is a output parameter. */
+#define _INOUT_     /**< indicate that this is a io parameter. */
+#define _IN_OPT_    /**< indicate that this is a optional input parameter. */
+#define _OUT_OPT_   /**< indicate that this is a optional output parameter. */
+#define _INOUT_OPT_   /**< indicate that this is a optional io parameter. */
 
 
 #define PLATFORM_SOCKET_MAXNUMS (10)
@@ -71,6 +71,14 @@ typedef unsigned long  long      uint64_t;
 #define STR_SHORT_LEN           (32)
 #define STR_LONG_LEN            (128)
 
+#ifndef ETH_ALEN
+#define ETH_ALEN                (6)
+#endif
+
+/* ssid: 32 octets at most, include the NULL-terminated */
+#define PLATFORM_MAX_SSID_LEN   (32 + 1)
+/* password: 8-63 ascii */
+#define PLATFORM_MAX_PASSWD_LEN (64 + 1)
 
 /*********************************** thread interface ***********************************/
 
@@ -84,7 +92,7 @@ typedef unsigned long  long      uint64_t;
  * @param[out] thread @n The new thread handle.
  * @param[in] name @n thread name.
  * @param[in] start_routine @n A pointer to the application-defined function to be executed by the thread.
-        This pointer represents the starting address of the thread.
+    This pointer represents the starting address of the thread.
  * @param[in] arg @n A pointer to a variable to be passed to the start_routine.
  * @param[in] stack @n A pointer to stack buffer malloced by caller, if platform used this buffer, set stack_used to non-zero value,  otherwise set it to 0.
  * @param[in] stack_size @n The initial size of the stack, in bytes. see platform_get_thread_stack_size().
@@ -127,8 +135,7 @@ void platform_thread_exit(_IN_ void *thread);
  *   2) wsf_send_worker;
  *   3) wsf_callback_worker;
  *   4) fota_thread;
- *   5) cota_thread;
- *   6) alcs_thread;
+ *   5) alcs_thread;
  */
 int platform_thread_get_stack_size(_IN_ const char *thread_name);
 
@@ -306,8 +313,7 @@ void platform_free(_IN_ void *ptr);
 /**
  * @brief this is a network address structure, including host(ip or host name) and port.
  */
-typedef struct
-{
+typedef struct {
     char *host; /**< host ip(dotted-decimal notation) or host name(string) */
     uint16_t port; /**< udp port or tcp port */
 } platform_netaddr_t, *pplatform_netaddr_t;
@@ -774,7 +780,7 @@ void platform_printf(_IN_ const char *fmt, ...);
  */
 const char *platform_get_storage_directory(void);
 
-#define PLATFORM_CONFIG_SIZE    (2048)
+#define PLATFORM_CONFIG_SIZE  (2048)
 
 /**
  * @brief Read configure data from the start of configure zone.
@@ -816,7 +822,6 @@ int platform_config_write(const char *buffer, int length);
  *  @{
  */
 
-#define PLATFORM_MODULE_NAME_LEN   (32 + 1)
 /**
  * @brief Get model of the wifi module.
  *
@@ -825,7 +830,7 @@ int platform_config_write(const char *buffer, int length);
  * @see None.
  * @note None.
  */
-char *platform_get_module_name(char name_str[PLATFORM_MODULE_NAME_LEN]);
+char *platform_get_module_name(char name_str[STR_SHORT_LEN]);
 
 
 /**
@@ -839,6 +844,25 @@ char *platform_get_module_name(char name_str[PLATFORM_MODULE_NAME_LEN]);
 int platform_wifi_get_rssi_dbm(void);
 
 /**
+ * @brief wifi module enter power saving mode for a period
+ *
+ * @param[in] timeout_ms @n during this period, wifi module enter power saving
+ *          mode
+ * @return 0 for success, -1 otherwise
+ * @see None.
+ * @note sample code
+ * int platform_wifi_low_power(int timeout_ms)
+ * {
+ *      wifi_enter_power_saving_mode();
+ *      msleep(timeout_ms);
+ *      wifi_exit_power_saving_mode();
+ *
+ *      return 0;
+ * }
+ */
+int platform_wifi_low_power(int timeout_ms);
+
+/**
  * @brief Get WIFI received signal strength indication(rssi).
  *
  * @param None.
@@ -849,9 +873,9 @@ int platform_wifi_get_rssi_dbm(void);
 int platform_rf433_get_rssi_dbm(void);
 
 
-#define PLATFORM_MAC_LEN    (17 + 1)
+#define PLATFORM_MAC_LEN  (17 + 1)
 /**
- * @brief Get WIFI MAC string with format like: xx:xx:xx:xx:xx:xx.
+ * @brief Get WIFI MAC string, format should be XX:XX:XX:XX:XX:XX
  *
  * @param[out] mac_str @n Buffer for using to store wifi MAC string.
  * @return A pointer to the start address of mac_str.
@@ -886,8 +910,6 @@ uint32_t platform_wifi_get_ip(char ip_str[PLATFORM_IP_LEN]);
 char *platform_get_chipid(char cid_str[PLATFORM_CID_LEN]);
 
 
-
-#define PLATFORM_OS_VERSION_LEN     (32 + 1)
 /**
  * @brief Get the os version of wifi module firmware.
  *
@@ -896,7 +918,7 @@ char *platform_get_chipid(char cid_str[PLATFORM_CID_LEN]);
  * @see None.
  * @note None.
  */
-char *platform_get_os_version(char version_str[PLATFORM_OS_VERSION_LEN]);
+char *platform_get_os_version(char version_str[STR_SHORT_LEN]);
 
 
 /** @} */ //end of platform_wifi_module
@@ -919,7 +941,15 @@ char *platform_get_os_version(char version_str[PLATFORM_OS_VERSION_LEN]);
  */
 int platform_awss_get_timeout_interval_ms(void);
 
-
+/**
+ * @brief Get timeout interval in millisecond to connect the default SSID if awss timeout happens.
+ *
+ * @param None.
+ * @return The timeout interval.
+ * @see None.
+ * @note The recommended value is 0ms, which mean forever.
+ */
+int platform_awss_get_connect_default_ssid_timeout_interval_ms(void);
 
 /**
  * @brief Get time length, in millisecond, of per channel scan.
@@ -953,7 +983,7 @@ enum AWSS_LINK_TYPE {
    @verbatim
             a) iwconfig wlan0 mode monitor  #open monitor mode
             b) iwconfig wlan0 channel 6 #switch channel 6
-            c) tcpdump -i wlan0 -s0 -w file.pacp    #capture 80211 frame & save
+            c) tcpdump -i wlan0 -s0 -w file.pacp  #capture 80211 frame & save
             d) open file.pacp with wireshark or omnipeek
                 check the link header type and fcs included or not
    @endverbatim
@@ -987,9 +1017,6 @@ void platform_awss_close_monitor(void);
 
 
 
-#ifndef ETH_ALEN
-#define ETH_ALEN        (6)
-#endif
 /**
  * @brief Switch to specific wifi channel.
  *
@@ -1005,12 +1032,7 @@ void platform_awss_close_monitor(void);
 void platform_awss_switch_channel(
     _IN_ char primary_channel,
     _IN_OPT_ char secondary_channel,
-    _IN_OPT_ char bssid[ETH_ALEN]);
-
-/* ssid: 32 octets at most, include the NULL-terminated */
-#define PLATFORM_MAX_SSID_LEN           (32 + 1)
-/* password: 8-63 ascii */
-#define PLATFORM_MAX_PASSWD_LEN         (64 + 1)
+    _IN_OPT_ uint8_t bssid[ETH_ALEN]);
 
 /* auth type */
 enum AWSS_AUTH_TYPE {
@@ -1063,8 +1085,231 @@ int platform_awss_connect_ap(
     _IN_OPT_ uint8_t bssid[ETH_ALEN],
     _IN_OPT_ uint8_t channel);
 
+/* 80211 frame type */
+enum platform_awss_frame_type {
+    FRAME_ACTION,
+    FRAME_BEACON,
+    FRAME_PROBE_REQ,
+    FRAME_PROBE_RESPONSE,
+    FRAME_DATA
+};
+
+#define FRAME_ACTION_MASK       (1 << FRAME_ACTION)
+#define FRAME_BEACON_MASK       (1 << FRAME_BEACON)
+#define FRAME_PROBE_REQ_MASK    (1 << FRAME_PROBE_REQ)
+#define FRAME_PROBE_RESP_MASK   (1 << FRAME_PROBE_RESPONSE)
+#define FRAME_DATA_MASK         (1 << FRAME_DATA)
+
+/**
+ * @brief send 80211 raw frame in current channel with basic rate(1Mbps)
+ *
+ * @param[in] type @n see enum platform_awss_frame_type, currently only FRAME_BEACON
+ *                      FRAME_PROBE_REQ is used
+ * @param[in] buffer @n 80211 raw frame, include complete mac header & FCS field
+ * @param[in] len @n 80211 raw frame length
+ * @return
+   @verbatim
+   =  0, send success.
+   = -1, send failure.
+   = -2, unsupported.
+   @endverbatim
+ * @see None.
+ * @note awss use this API send raw frame in wifi monitor mode & station mode
+ */
+int platform_wifi_send_80211_raw_frame(_IN_ enum platform_awss_frame_type type,
+                                       _IN_ uint8_t *buffer, _IN_ int len);
+
+/**
+ * @brief management frame handler
+ *
+ * @param[in] buffer @n 80211 raw frame or ie(information element) buffer
+ * @param[in] len @n buffer length
+ * @param[in] rssi_dbm @n rssi in dbm, set it to 0 if not supported
+ * @param[in] buffer_type @n 0 when buffer is a 80211 frame,
+ *                          1 when buffer only contain IE info
+ * @return None.
+ * @see None.
+ * @note None.
+ */
+typedef void (*platform_wifi_mgnt_frame_cb_t)(_IN_ uint8_t *buffer,
+        _IN_ int len, _IN_ char rssi_dbm, _IN_ int buffer_type);
+
+/**
+ * @brief enable/disable filter specific management frame in wifi station mode
+ *
+ * @param[in] filter_mask @n see mask macro in enum platform_awss_frame_type,
+ *                      currently only FRAME_PROBE_REQ_MASK & FRAME_BEACON_MASK is used
+ * @param[in] vendor_oui @n oui can be used for precise frame match, optional
+ * @param[in] callback @n see platform_wifi_mgnt_frame_cb_t, passing 80211
+ *                      frame or ie to callback. when callback is NULL
+ *                      disable sniffer feature, otherwise enable it.
+ * @return
+   @verbatim
+   =  0, success
+   = -1, fail
+   = -2, unsupported.
+   @endverbatim
+ * @see None.
+ * @note awss use this API to filter specific mgnt frame in wifi station mode
+ */
+int platform_wifi_enable_mgnt_frame_filter(
+    _IN_ uint32_t filter_mask,
+    _IN_OPT_ uint8_t vendor_oui[3],
+    _IN_ platform_wifi_mgnt_frame_cb_t callback);
+
 /** @} */ //end of platform__awss
 
+typedef struct {
+    enum AWSS_AUTH_TYPE auth;
+    enum AWSS_ENC_TYPE encry;
+    uint8_t channel;
+    char rssi_dbm;
+    char ssid[PLATFORM_MAX_SSID_LEN];
+    uint8_t mac[ETH_ALEN];
+} ap_info_t;
+
+/**
+ * @brief handle one piece of AP information from wifi scan result
+ *
+ * @param[in] ssid @n name of AP
+ * @param[in] bssid @n mac address of AP
+ * @param[in] channel @n AP channel
+ * @param[in] rssi @n rssi range[-100, 0].
+ *          the higher the RSSI number, the stronger the signal.
+ * @param[in] is_last_ap @n this AP information is the last one if is_last_ap > 0.
+ *          this AP information is not the last one if is_last_ap == 0.
+ * @return 0 for wifi scan is done, otherwise return -1
+ * @see None.
+ * @note None.
+ */
+typedef int (*platform_wifi_scan_result_cb_t)(
+    const char ssid[PLATFORM_MAX_SSID_LEN],
+    const uint8_t bssid[ETH_ALEN],
+    enum AWSS_AUTH_TYPE auth,
+    enum AWSS_ENC_TYPE encry,
+    uint8_t channel, char rssi,
+    int is_last_ap);
+
+/**
+ * @brief launch a wifi scan operation
+ *
+ * @param[in] cb @n pass ssid info(scan result) to this callback one by one
+ * @return 0 for wifi scan is done, otherwise return -1
+ * @see None.
+ * @note
+ *      This API should NOT exit before the invoking for cb is finished.
+ *      This rule is something like the following :
+ *      platform_wifi_scan() is invoked...
+ *      ...
+ *      for (ap = first_ap; ap <= last_ap; ap = next_ap){
+ *        cb(ap)
+ *      }
+ *      ...
+ *      platform_wifi_scan() exit...
+ */
+int platform_wifi_scan(platform_wifi_scan_result_cb_t cb);
+
+typedef enum {
+    PLATFORM_AES_ENCRYPTION = 0,
+    PLATFORM_AES_DECRYPTION = 1,
+} AES_DIR_t;
+
+typedef void *p_aes128_t;
+
+/**
+ * @brief initialize AES struct.
+ *
+ * @param[in] key:
+ * @param[in] iv:
+ * @param[in] dir: AES_ENCRYPTION or AES_DECRYPTION
+ * @return AES128_t
+   @verbatim None
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+p_aes128_t platform_aes128_init(
+    _IN_ const uint8_t *key,
+    _IN_ const uint8_t *iv,
+    _IN_ AES_DIR_t dir);
+
+/**
+ * @brief release AES struct.
+ *
+ * @param[in] aes:
+ * @return
+   @verbatim
+     = 0: succeeded
+     = -1: failed
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+int platform_aes128_destroy(_IN_ p_aes128_t aes);
+
+/**
+ * @brief encrypt data with aes (cbc/128bit key).
+ *
+ * @param[in] aes: AES handler
+ * @param[in] src: plain data
+ * @param[in] blockNum: plain data number of 16 bytes size
+ * @param[out] dst: cipher data
+ * @return
+   @verbatim
+     = 0: succeeded
+     = -1: failed
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+int platform_aes128_cbc_encrypt(
+    _IN_ p_aes128_t aes,
+    _IN_ const void *src,
+    _IN_ size_t blockNum,
+    _OUT_ void *dst );
+
+/**
+ * @brief decrypt data with aes (cbc/128bit key).
+ *
+ * @param[in] aes: AES handler
+ * @param[in] src: cipher data
+ * @param[in] blockNum: plain data number of 16 bytes size
+ * @param[out] dst: plain data
+ * @return
+   @verbatim
+     = 0: succeeded
+     = -1: failed
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+int platform_aes128_cbc_decrypt(
+    _IN_ p_aes128_t aes,
+    _IN_ const void *src,
+    _IN_ size_t blockNum,
+    _OUT_ void *dst );
+
+/**
+ * @brief get the information of the connected AP.
+ *
+ * @param[out] ssid: array to store ap ssid. It will be null if ssid is not required.
+ * @param[out] passwd: array to store ap password. It will be null if ap password is not required.
+ * @param[out] bssid: array to store ap bssid. It will be null if bssid is not required.
+ * @return
+   @verbatim
+     = 0: succeeded
+     = -1: failed
+   @endverbatim
+ * @see None.
+ * @note None.
+ */
+int platform_wifi_get_ap_info(
+    _OUT_ char ssid[PLATFORM_MAX_SSID_LEN],
+    _OUT_ char passwd[PLATFORM_MAX_PASSWD_LEN],
+    _OUT_ uint8_t bssid[ETH_ALEN]);
+
+
+/** @} */ //end of platform__awss
 
 /** @} */ //end of group_platform
 
@@ -1073,3 +1318,4 @@ int platform_awss_connect_ap(
 #endif
 
 #endif
+
