@@ -15,7 +15,7 @@
 #ifndef __ALINK_JOSN_H__
 #define __ALINK_JOSN_H__
 #include "esp_system.h"
-#include "alink_log.h"
+#include "esp_alink_log.h"
 
 #ifdef __cplusplus
 extern "C" {

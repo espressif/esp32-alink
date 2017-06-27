@@ -25,8 +25,8 @@
  * INCLUDING THE WARRANTIES OF MERCHANTIBILITY, FITNESS FOR A PARTICULAR
  * PURPOSE, TITLE, AND NONINFRINGEMENT.
  */
-#include "platform/platform.h"
-#include "product/product.h"
+#include "alink_platform.h"
+#include "alink_product.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -39,6 +39,7 @@
 #include <string.h>
 #include "esp_alink.h"
 #include "alink_json_parser.h"
+#include "esp_json_parser.h"
 
 #define Method_PostData     "postDeviceData"
 #define Method_PostRawData  "postDeviceRawData"

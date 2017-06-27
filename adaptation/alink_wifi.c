@@ -8,10 +8,10 @@
 #include "esp_system.h"
 #include "esp_log.h"
 
-#include "platform.h"
+#include "alink_platform.h"
 #include "alink_export.h"
 #include "esp_alink.h"
-#include "alink_info_store.h"
+#include "esp_info_store.h"
 
 static platform_awss_recv_80211_frame_cb_t g_sniffer_cb = NULL;
 static const char *TAG = "alink_wifi";
@@ -219,6 +219,8 @@ int platform_wifi_send_80211_raw_frame(_IN_ enum platform_awss_frame_type type,
                                        _IN_ uint8_t *buffer, _IN_ int len)
 {
     ALINK_PARAM_CHECK(!buffer);
+    static int i = 0;
+    if ((i++) & 0x3) return 0;
 
     int ret = esp_wifi_80211_tx(ESP_IF_WIFI_STA, buffer, len);
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_80211_tx, ret: 0x%x", ret);

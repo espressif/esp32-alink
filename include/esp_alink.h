@@ -2,15 +2,14 @@
 #define __ALINK_USER_CONFIG_H__
 #include <stdio.h>
 #include "alink_export.h"
-#include "platform.h"
+#include "alink_platform.h"
 #include "assert.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "lwip/sockets.h"
-#include "json_parser.h"
 
-#include "alink_log.h"
+#include "esp_alink_log.h"
 
 /*!< description */
 #ifndef CONFIG_WIFI_WAIT_TIME

@@ -11,7 +11,7 @@
 #include "lwip/api.h"
 #include "lwip/netdb.h"
 
-#include "platform/platform.h"
+#include "alink_platform.h"
 #include "esp_alink.h"
 
 static SSL_CTX *ctx = NULL;

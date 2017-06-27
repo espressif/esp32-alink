@@ -9,7 +9,7 @@
 #include "lwip/netdb.h"
 #include "esp_system.h"
 
-#include "platform/platform.h"
+#include "alink_platform.h"
 #include "tcpip_adapter.h"
 #include "esp_alink.h"
 

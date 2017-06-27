@@ -23,9 +23,11 @@
 #include "nvs_flash.h"
 #include "string.h"
 #include "esp_alink.h"
-#include "alink_info_store.h"
+#include "esp_info_store.h"
 #include "esp_partition.h"
-#include "product.h"
+#include "alink_product.h"
+#include "alink_json_parser.h"
+#include "esp_json_parser.h"
 
 static const char *TAG = "alink_main";
 

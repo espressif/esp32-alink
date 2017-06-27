@@ -17,7 +17,7 @@
 #include <stdlib.h>
 #include "esp_system.h"
 #include "cJSON.h"
-#include "alink_log.h"
+#include "esp_alink_log.h"
 
 #define TAG "alink_json_parser"
 alink_err_t __alink_json_parse(const char *json_str, const char *key, void *value, int value_type)

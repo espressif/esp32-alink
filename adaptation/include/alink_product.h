@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-#include "platform.h"
+#include "alink_platform.h"
 #include "esp_alink.h"
 
 /** @defgroup group_product product

@@ -14,7 +14,7 @@
 
 #include "string.h"
 #include "stdlib.h"
-#include "alink_info_store.h"
+#include "esp_info_store.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 

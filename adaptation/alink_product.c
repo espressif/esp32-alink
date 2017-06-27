@@ -24,7 +24,7 @@
  * INCLUDING THE WARRANTIES OF MERCHANTIBILITY, FITNESS FOR A PARTICULAR
  * PURPOSE, TITLE, AND NONINFRINGEMENT.
  */
-#include "product/product.h"
+#include "alink_product.h"
 static const char *TAG = "alink_product";
 
 static alink_product_t g_device_info;

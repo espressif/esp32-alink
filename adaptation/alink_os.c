@@ -12,7 +12,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 
-#include "platform.h"
+#include "alink_platform.h"
 #include "esp_alink.h"
 
 
