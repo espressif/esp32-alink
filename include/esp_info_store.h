@@ -1,19 +1,30 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+/*
+ * ESPRESSIF MIT License
+ *
+ * Copyright (c) 2017 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
+ *
+ * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP8266 only, in which case,
+ * it is free of charge, to any person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or
+ * substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ */
 
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+#ifndef __ESP_INFO_STORE_H__
+#define __ESP_INFO_STORE_H__
 
-#ifndef __alink_INFO_STORE_H__
-#define __alink_INFO_STORE_H__
 #include <stdio.h>
 #include "esp_alink.h"
 
@@ -33,7 +44,7 @@ extern "C" {
  *     - alink_ERR : Error, errno is set appropriately
  *     - alink_OK  : Success
  */
-int alink_info_erase(const char *key);
+alink_err_t esp_info_erase(const char *key);
 
 /**
  * @brief Save the alink's information
@@ -45,7 +56,7 @@ int alink_info_erase(const char *key);
  *     - alink_ERR : Error, errno is set appropriately
  *     - others    : The length of the stored information
  */
-ssize_t alink_info_save(const char *key, const void *value, size_t length);
+ssize_t esp_info_save(const char *key, const void *value, size_t length);
 
 /**
  * @brief  Load the alink's information
@@ -57,10 +68,29 @@ ssize_t alink_info_save(const char *key, const void *value, size_t length);
  *     - alink_ERR : Error, errno is set appropriately
  *     - others   : The length of the stored information
  */
-ssize_t alink_info_load(const char *key, void *value, size_t length);
+ssize_t esp_info_load(const char *key, void *value, size_t length);
+
+/****************************** example ******************************/
+/*
+void info_store()
+{
+    esp_info_init();
+    char buf[16] = "12345678910";
+
+    esp_info_save("test_buf", buf, sizeof(buf));
+    memset(buf, 0, sizeof(buf));
+    int ret = esp_info_load("test_buf", buf, sizeof(buf));
+    printf("ret: %d, buf: %s\n", ret, buf);
+
+    esp_info_erase("test_buf");
+    memset(buf, 0, sizeof(buf));
+    ret = esp_info_load("test_buf", buf, sizeof(buf));
+    printf("ret: %d, buf: %s\n", ret, buf);
+}
+*/
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __alink_INFO_STORE_H__ */
+#endif /* __ESP_INFO_STORE_H__ */
