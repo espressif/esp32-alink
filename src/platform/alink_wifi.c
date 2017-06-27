@@ -194,6 +194,7 @@ int platform_awss_connect_ap(
     if (err < 0) {
         ALINK_LOGE("alink information save failed");
     }
+
     return ALINK_OK;
 }
 
@@ -218,12 +219,12 @@ int platform_wifi_send_80211_raw_frame(_IN_ enum platform_awss_frame_type type,
                                        _IN_ uint8_t *buffer, _IN_ int len)
 {
     ALINK_PARAM_CHECK(!buffer);
-    int ret = 0;
-    ret = esp_wifi_80211_tx(ESP_IF_WIFI_STA, buffer, len);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_80211_tx, ret: %d", ret);
+
+    int ret = esp_wifi_80211_tx(ESP_IF_WIFI_STA, buffer, len);
+    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_80211_tx, ret: 0x%x", ret);
+
     return ALINK_OK;
 }
-
 
 platform_wifi_mgnt_frame_cb_t g_callback = NULL;
 static uint8_t g_vendor_oui[3];
@@ -260,10 +261,8 @@ int platform_wifi_enable_mgnt_frame_filter(_IN_ uint32_t filter_mask,
 {
 
     alink_err_t ret = 0;
-    if (filter_mask < 1) {
-        return -2;
-    }
-
+    ALINK_ERROR_CHECK(filter_mask != (FRAME_PROBE_REQ_MASK | FRAME_BEACON_MASK),
+                      -2, "frame is no support, frame: 0x%x", filter_mask);
     g_callback = callback;
     memcpy(g_vendor_oui, vendor_oui, sizeof(g_vendor_oui));
 
@@ -491,19 +490,14 @@ int platform_wifi_get_ap_info(
         memcpy(bssid, ap_info.bssid, ETH_ALEN);
     }
 
+    if (!passwd) return ALINK_OK;
+
     wifi_config_t wifi_config;
     ret = alink_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
-    ALINK_ERROR_CHECK(ret <= 0, ALINK_ERR, "alink_read_wifi_config");
-    if (!memcmp(ap_info.ssid, wifi_config.ap.ssid, strlen((char *)ap_info.ssid))) {
-        if (passwd) {
-            memcpy(passwd, wifi_config.ap.password, PLATFORM_MAX_PASSWD_LEN);
-        }
+    if (ret == ALINK_OK && !memcmp(ap_info.ssid, wifi_config.ap.ssid, strlen((char *)ap_info.ssid))) {
+        memcpy(passwd, wifi_config.ap.password, PLATFORM_MAX_PASSWD_LEN);
     } else {
-        ALINK_LOGW("ap_info.ssid: %s, wifi_config.ssid: %s", ap_info.ssid, wifi_config.ap.ssid);
-        if (passwd) {
-            memset(passwd, 0, PLATFORM_MAX_PASSWD_LEN);
-        }
+        memset(passwd, 0, PLATFORM_MAX_PASSWD_LEN);
     }
-
     return ALINK_OK;
 }
