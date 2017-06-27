@@ -1,26 +1,37 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+/*
+ * ESPRESSIF MIT License
+ *
+ * Copyright (c) 2017 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
+ *
+ * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP8266 only, in which case,
+ * it is free of charge, to any person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or
+ * substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ */
 
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+#include "esp_common.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include "esp_system.h"
 #include "cJSON.h"
-#include "esp_alink_log.h"
 
-#define TAG "alink_json_parser"
-alink_err_t __alink_json_parse(const char *json_str, const char *key, void *value, int value_type)
+#include "esp_alink_log.h"
+#include "esp_alink.h"
+
+static const char *TAG = "esp_json_parser";
+
+alink_err_t __esp_json_parse(const char *json_str, const char *key, void *value, int value_type)
 {
     ALINK_PARAM_CHECK(!json_str);
     ALINK_PARAM_CHECK(!key);
@@ -30,64 +41,76 @@ alink_err_t __alink_json_parse(const char *json_str, const char *key, void *valu
     ALINK_ERROR_CHECK(!pJson, ALINK_ERR, "cJSON_Parse");
 
     cJSON *pSub = cJSON_GetObjectItem(pJson, key);
+
     if (!pSub) {
         cJSON_Delete(pJson);
         return -EINVAL;
     }
+
     // ALINK_ERROR_CHECK(!pSub, -EINVAL, "cJSON_GetObjectItem %s", key);
 
     char *p = NULL;
 
     switch (value_type) {
-    case 1:
-        *((int *)value) = pSub->valueint;
-        break;
-    case 2:
-        *((float *)value) = (float)(pSub->valuedouble);
-        break;
-    case 3:
-        *((double *)value) = pSub->valuedouble;
-        break;
+        case 1:
+            *((int *)value) = pSub->valueint;
+            break;
 
-    default:
-        switch (pSub->type) {
-        case cJSON_False:
-            *((char *)value) = cJSON_False;
+        case 2:
+            *((float *)value) = (float)(pSub->valuedouble);
             break;
-        case cJSON_True:
-            *((char *)value) = cJSON_True;
+
+        case 3:
+            *((double *)value) = pSub->valuedouble;
             break;
-        case cJSON_Number:
-            *((char *)value) = pSub->valueint;
-            break;
-        case cJSON_String:
-            memcpy(value, pSub->valuestring, strlen(pSub->valuestring) + 1);
-            break;
-        case cJSON_Object:
-            p = cJSON_Print(pSub);
-            if (!p) {
-                cJSON_Delete(pJson);
-            }
-            ALINK_ERROR_CHECK(!p, -ENOMEM, "cJSON_Print");
-            memcpy(value, p, strlen(p) + 1);
-            free(p);
-            break;
+
         default:
-            ALINK_LOGE("does not support this type(%d) of data parsing", pSub->type);
-            break;
-        }
+            switch (pSub->type) {
+                case cJSON_False:
+                    *((char *)value) = cJSON_False;
+                    break;
+
+                case cJSON_True:
+                    *((char *)value) = cJSON_True;
+                    break;
+
+                case cJSON_Number:
+                    *((char *)value) = pSub->valueint;
+                    break;
+
+                case cJSON_String:
+                    memcpy(value, pSub->valuestring, strlen(pSub->valuestring) + 1);
+                    break;
+
+                case cJSON_Object:
+                    p = cJSON_Print(pSub);
+
+                    if (!p) {
+                        cJSON_Delete(pJson);
+                    }
+
+                    ALINK_ERROR_CHECK(!p, -ENOMEM, "cJSON_Print");
+                    memcpy(value, p, strlen(p) + 1);
+                    free(p);
+                    break;
+
+                default:
+                    ALINK_LOGE("does not support this type(%d) of data parsing", pSub->type);
+                    break;
+            }
     }
 
     cJSON_Delete(pJson);
     return ALINK_OK;
 }
 
-ssize_t alink_json_pack_double(char *json_str, const char *key, double value)
+ssize_t esp_json_pack_double(char *json_str, const char *key, double value)
 {
     ALINK_PARAM_CHECK(!json_str);
     ALINK_PARAM_CHECK(!key);
 
     int ret = 0;
+
     if (*json_str != '{') {
         *json_str = '{';
     } else {
@@ -96,6 +119,7 @@ ssize_t alink_json_pack_double(char *json_str, const char *key, double value)
         ALINK_ERROR_CHECK(*(json_str) != '}', -EINVAL, "json_str Not initialized to empty");
         *json_str = ',';
     }
+
     json_str++;
     ret++;
 
@@ -103,18 +127,20 @@ ssize_t alink_json_pack_double(char *json_str, const char *key, double value)
     return ret;
 }
 
-ssize_t __alink_json_pack(char *json_str, const char *key, int value, int value_type)
+ssize_t __esp_json_pack(char *json_str, const char *key, int value, int value_type)
 {
     ALINK_PARAM_CHECK(!json_str);
     ALINK_PARAM_CHECK(!key);
 
     char identifier = '{';
+
     if (*key == '[') {
         identifier = '[';
         key = NULL;
     }
 
     int ret = 0;
+
     if (*json_str != identifier) {
         *json_str = identifier;
     } else {
@@ -123,6 +149,7 @@ ssize_t __alink_json_pack(char *json_str, const char *key, int value, int value_
         // ALINK_ERROR_CHECK(*(json_str) != '}', -EINVAL, "json_str Not initialized to empty");
         *json_str = ',';
     }
+
     json_str++;
     ret++;
 
@@ -133,7 +160,9 @@ ssize_t __alink_json_pack(char *json_str, const char *key, int value, int value_
     if ((!value_type) && ((value & 0x3f000000) == 0x3f000000)) {
         value_type = 3;
     }
+
     int tmp = 0;
+
     if (key) {
         tmp = sprintf(json_str, "\"%s\": ", key);
         json_str += tmp;
@@ -141,31 +170,37 @@ ssize_t __alink_json_pack(char *json_str, const char *key, int value, int value_
     }
 
     switch (value_type) {
-    case 1:
-        tmp = sprintf(json_str, "%d", (int)value);
-        break;
-    case 2:
-        tmp = sprintf(json_str, "%lf", (double)value);
-        break;
-    case 3:
-        if (*((char *)value) == '{' || *((char *)value) == '[') {
-            tmp = sprintf(json_str, "%s", (char *)value);
-        } else {
-            tmp = sprintf(json_str, "\"%s\"", (char *)value);
-        }
-        break;
+        case 1:
+            tmp = sprintf(json_str, "%d", (int)value);
+            break;
 
-    default:
-        ALINK_LOGE("invalid type: %d", value_type);
-        ret = ALINK_ERR;
-        return ret;
+        case 2:
+            tmp = sprintf(json_str, "%lf", (double)value);
+            break;
+
+        case 3:
+            if (*((char *)value) == '{' || *((char *)value) == '[') {
+                tmp = sprintf(json_str, "%s", (char *)value);
+            } else {
+                tmp = sprintf(json_str, "\"%s\"", (char *)value);
+            }
+
+            break;
+
+        default:
+            ALINK_LOGE("invalid type: %d, value_add: %x", value_type, value);
+            ret = ALINK_ERR;
+            return ret;
     }
+
     // printf("ret : %d, strlen: %d, json_str: %s\n", ret, (int)strlen(json_str), json_str - ret + 1);
     *(json_str + tmp) = '}';
     *(json_str + tmp + 1) = '\0';
+
     if (identifier == '[') {
         *(json_str + tmp) = ']';
     }
+
     // *(json_str + ret) = 0;
     ret += tmp + 1;
     return ret;
