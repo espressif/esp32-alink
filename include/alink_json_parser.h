@@ -24,19 +24,19 @@
  * INCLUDING THE WARRANTIES OF MERCHANTIBILITY, FITNESS FOR A PARTICULAR
  * PURPOSE, TITLE, AND NONINFRINGEMENT.
  */
-#ifndef JSON_PARSER_H
-#define JSON_PARSER_H
+#ifndef __ALINK_JSON_PARSER_H__
+#define __ALINK_JSON_PARSER_H__
 
 /**
 The descriptions of the json value node type
 **/
 enum JSONTYPE {
-JNONE = -1,
-JSTRING = 0,
-JOBJECT,
-JARRAY,
-JNUMBER,
-JTYPEMAX
+    JNONE = -1,
+    JSTRING = 0,
+    JOBJECT,
+    JARRAY,
+    JNUMBER,
+    JTYPEMAX
 };
 
 /**

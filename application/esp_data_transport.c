@@ -1,29 +1,25 @@
-
 /*
- * Copyright (c) 2014-2015 Alibaba Group. All rights reserved.
+ * ESPRESSIF MIT License
  *
- * Alibaba Group retains all right, title and interest (including all
- * intellectual property rights) in and to this computer program, which is
- * protected by applicable intellectual property laws.  Unless you have
- * obtained a separate written license from Alibaba Group., you are not
- * authorized to utilize all or a part of this computer program for any
- * purpose (including reproduction, distribution, modification, and
- * compilation into object code), and you must immediately destroy or
- * return to Alibaba Group all copies of this computer program.  If you
- * are licensed by Alibaba Group, your rights to utilize this computer
- * program are limited by the terms of that license.  To obtain a license,
- * please contact Alibaba Group.
+ * Copyright (c) 2017 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
  *
- * This computer program contains trade secrets owned by Alibaba Group.
- * and, unless unauthorized by Alibaba Group in writing, you agree to
- * maintain the confidentiality of this computer program and related
- * information and to not disclose this computer program and related
- * information to any other person or entity.
+ * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP8266 only, in which case,
+ * it is free of charge, to any person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
  *
- * THIS COMPUTER PROGRAM IS PROVIDED AS IS WITHOUT ANY WARRANTIES, AND
- * Alibaba Group EXPRESSLY DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED,
- * INCLUDING THE WARRANTIES OF MERCHANTIBILITY, FITNESS FOR A PARTICULAR
- * PURPOSE, TITLE, AND NONINFRINGEMENT.
+ * The above copyright notice and this permission notice shall be included in all copies or
+ * substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
  */
 
 #include "esp_system.h"
