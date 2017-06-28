@@ -190,7 +190,7 @@ int platform_awss_connect_ap(
     if (!strcmp(ssid, "aha")) {
         return ALINK_OK;
     }
-    err = alink_info_save(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
+    err = esp_info_save(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
     if (err < 0) {
         ALINK_LOGE("alink information save failed");
     }
@@ -495,7 +495,7 @@ int platform_wifi_get_ap_info(
     if (!passwd) return ALINK_OK;
 
     wifi_config_t wifi_config;
-    ret = alink_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
+    ret = esp_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
     if (ret == ALINK_OK && !memcmp(ap_info.ssid, wifi_config.ap.ssid, strlen((char *)ap_info.ssid))) {
         memcpy(passwd, wifi_config.ap.password, PLATFORM_MAX_PASSWD_LEN);
     } else {

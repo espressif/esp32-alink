@@ -73,7 +73,7 @@ static alink_err_t cloud_get_device_data(_IN_ char *json_buffer)
     alink_event_send(ALINK_EVENT_GET_DEVICE_DATA);
     alink_err_t ret = ALINK_OK;
 
-    ret = alink_json_pack(json_buffer, "method", Method_GetStatus);
+    ret = esp_json_pack(json_buffer, "method", Method_GetStatus);
     ALINK_ERROR_CHECK(ret < 0, ALINK_ERR, "alink_json_pack, ret:%d", ret);
 
     int size = ret + 1;
@@ -97,7 +97,7 @@ static alink_err_t cloud_set_device_data(_IN_ char *json_buffer)
     alink_event_send(ALINK_EVENT_SET_DEVICE_DATA);
     alink_err_t ret = ALINK_OK;
 
-    ret = alink_json_pack(json_buffer, "method", Method_SetStatus);
+    ret = esp_json_pack(json_buffer, "method", Method_SetStatus);
     ALINK_ERROR_CHECK(ret < 0, ALINK_ERR, "alink_json_pack, ret:%d", ret);
 
     int size = ret + 1;

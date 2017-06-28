@@ -38,7 +38,7 @@ alink_err_t alink_update_router()
 {
     int ret = 0;
     ALINK_LOGI("clear wifi config");
-    ret = alink_info_erase(NVS_KEY_WIFI_CONFIG);
+    ret = esp_info_erase(NVS_KEY_WIFI_CONFIG);
     ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "alink_erase");
     ALINK_LOGI("The system is about to be restarted");
     esp_restart();
@@ -51,7 +51,7 @@ static alink_err_t alink_connect_ap()
     alink_err_t ret = ALINK_ERR;
     wifi_config_t wifi_config;
 
-    ret = alink_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
+    ret = esp_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
     if (ret > 0) {
         if (platform_awss_connect_ap(WIFI_WAIT_TIME, (char *)wifi_config.sta.ssid, (char *)wifi_config.sta.password,
                                      0, 0, wifi_config.sta.bssid, 0) == ALINK_OK) {
@@ -83,7 +83,7 @@ alink_err_t alink_factory_setting()
     ALINK_LOGI("*********************************");
     ALINK_LOGI("clear wifi config");
     alink_err_t err;
-    err = alink_info_erase(ALINK_SPACE_NAME);
+    err = esp_info_erase(ALINK_SPACE_NAME);
     ALINK_ERROR_CHECK(err != 0, ALINK_ERR, "alink_erase_wifi_config");
 
     esp_partition_t find_partition;
