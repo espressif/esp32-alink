@@ -22,12 +22,13 @@
  *
  */
 
-#include "esp_common.h"
+#include <stdlib.h>
+#include <string.h>
 
 #include "cJSON.h"
 
-#include "esp_alink_log.h"
 #include "esp_alink.h"
+#include "esp_alink_log.h"
 
 static const char *TAG = "esp_json_parser";
 

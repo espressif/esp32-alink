@@ -8,29 +8,26 @@
  * Modification history:
  * 2016/11/16, v0.0.1 create this file.
 *******************************************************************************/
+#include <stdlib.h>
+
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
-#include "lwip/sockets.h"
-
-#include "esp_event_loop.h"
-#include "esp_wifi.h"
-#include "esp_err.h"
-#include "esp_system.h"
-#include "esp_log.h"
-
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "string.h"
-#include "esp_alink.h"
-#include "esp_info_store.h"
 #include "esp_partition.h"
+#include "esp_wifi.h"
+
 #include "alink_product.h"
+#include "alink_export.h"
 #include "alink_json_parser.h"
+
+#include "esp_alink.h"
+#include "esp_alink_log.h"
+#include "esp_info_store.h"
 #include "esp_json_parser.h"
 
 static const char *TAG = "alink_main";
-
 /**
  * @brief  Clear wifi information, restart the device into the config network mode
  */
@@ -44,7 +41,6 @@ alink_err_t alink_update_router()
     esp_restart();
     return ALINK_OK;
 }
-
 
 static alink_err_t alink_connect_ap()
 {
@@ -193,9 +189,9 @@ alink_err_t alink_init(_IN_ const void *product_info,
     }
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_trans_init :%d", ret);
 
-    unsigned int alink_server_time = 0;
-    ret = alink_get_time(&alink_server_time);
-    ALINK_LOGD("ret: %d,get alink utc time: %d\n", ret, alink_server_time);
+    // unsigned int alink_server_time = 0;
+    // ret = alink_get_time(&alink_server_time);
+    // ALINK_LOGD("ret: %d,get alink utc time: %d\n", ret, alink_server_time);
 
     return ALINK_OK;
 }

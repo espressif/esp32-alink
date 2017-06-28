@@ -1,17 +1,12 @@
-#include <esp_types.h>
-#include "string.h"
-#include "esp_log.h"
-
+#include "esp_system.h"
 #include "lwip/err.h"
 #include "lwip/sockets.h"
-#include "lwip/ip_addr.h"
-#include "lwip/api.h"
 #include "lwip/netdb.h"
-#include "esp_system.h"
-
-#include "alink_platform.h"
 #include "tcpip_adapter.h"
+
 #include "esp_alink.h"
+#include "alink_platform.h"
+#include "esp_alink_log.h"
 
 #define SOMAXCONN            5
 #define ALINK_SOCKET_TIMEOUT 20

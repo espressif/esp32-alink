@@ -1,18 +1,13 @@
-#include <string.h>
+#include "esp_system.h"
 #include "openssl/ssl.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_system.h"
-#include "esp_log.h"
-
-#include "lwip/err.h"
 #include "lwip/sockets.h"
-#include "lwip/ip_addr.h"
-#include "lwip/api.h"
 #include "lwip/netdb.h"
 
-#include "alink_platform.h"
 #include "esp_alink.h"
+#include "esp_alink_log.h"
+#include "alink_platform.h"
 
 static SSL_CTX *ctx = NULL;
 static const char *TAG = "alink_ssl";

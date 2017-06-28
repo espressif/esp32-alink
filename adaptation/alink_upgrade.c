@@ -1,30 +1,15 @@
-#include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-
 #include "esp_system.h"
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
-#include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 
-#include "nvs_flash.h"
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include "lwip/netdb.h"
-#include "lwip/dns.h"
 #include "esp_alink.h"
-
-#define BUFFSIZE 1024
+#include "esp_alink_log.h"
 
 static const char *TAG = "alink_upgrade";
 
 /* update handle : set by esp_ota_begin(), must be freed via esp_ota_end() */
-esp_ota_handle_t update_handle = 0 ;
-const esp_partition_t *update_partition = NULL;
+static esp_ota_handle_t update_handle = 0 ;
+static const esp_partition_t *update_partition = NULL;
 static int binary_file_length = 0;
 
 void platform_flash_program_start(void)

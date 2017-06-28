@@ -1,16 +1,11 @@
-#include "esp_wifi.h"
-#include "esp_err.h"
-#include "esp_types.h"
-#include "wpa/common.h"
-#include "wpa/ieee802_11_defs.h"
-#include "lwip/inet.h"
-#include "esp_event_loop.h"
 #include "esp_system.h"
-#include "esp_log.h"
+#include "esp_wifi.h"
+#include "esp_event_loop.h"
+#include "lwip/sockets.h"
 
 #include "alink_platform.h"
-#include "alink_export.h"
 #include "esp_alink.h"
+#include "esp_alink_log.h"
 #include "esp_info_store.h"
 
 static platform_awss_recv_80211_frame_cb_t g_sniffer_cb = NULL;
@@ -269,7 +264,7 @@ int platform_wifi_enable_mgnt_frame_filter(_IN_ uint32_t filter_mask,
     memcpy(g_vendor_oui, vendor_oui, sizeof(g_vendor_oui));
 
     ret = esp_wifi_set_vendor_ie_cb(ssc_vnd_filter_cb, NULL);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_set_vendor_ie, ret: %d", ret);
+    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_set_vendor_ie_cb, ret: %d", ret);
 
     return ALINK_OK;
 }
@@ -496,8 +491,9 @@ int platform_wifi_get_ap_info(
 
     wifi_config_t wifi_config;
     ret = esp_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
-    if (ret == ALINK_OK && !memcmp(ap_info.ssid, wifi_config.ap.ssid, strlen((char *)ap_info.ssid))) {
-        memcpy(passwd, wifi_config.ap.password, PLATFORM_MAX_PASSWD_LEN);
+    if (ret > 0 && !memcmp(ap_info.ssid, wifi_config.sta.ssid, strlen((char *)ap_info.ssid))) {
+        memcpy(passwd, wifi_config.sta.password, PLATFORM_MAX_PASSWD_LEN);
+        ALINK_LOGD("wifi passwd: %s", passwd);
     } else {
         memset(passwd, 0, PLATFORM_MAX_PASSWD_LEN);
     }

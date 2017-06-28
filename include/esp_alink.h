@@ -1,15 +1,41 @@
 #ifndef __ALINK_USER_CONFIG_H__
 #define __ALINK_USER_CONFIG_H__
-#include <stdio.h>
-#include "alink_export.h"
-#include "alink_platform.h"
-#include "assert.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "lwip/sockets.h"
 
-#include "esp_alink_log.h"
+#include "esp_system.h"
+
+typedef int32_t alink_err_t;
+
+#ifndef ALINK_TRUE
+#define ALINK_TRUE  1
+#endif
+#ifndef ALINK_FALSE
+#define ALINK_FALSE 0
+#endif
+#ifndef ALINK_OK
+#define ALINK_OK    0
+#endif
+#ifndef ALINK_ERR
+#define ALINK_ERR   -1
+#endif
+
+#ifndef _IN_
+#define _IN_            /*!< indicate that this is a input parameter. */
+#endif
+#ifndef _OUT_
+#define _OUT_           /*!< indicate that this is a output parameter. */
+#endif
+#ifndef _INOUT_
+#define _INOUT_         /*!< indicate that this is a io parameter. */
+#endif
+#ifndef _IN_OPT_
+#define _IN_OPT_        /*!< indicate that this is a optional input parameter. */
+#endif
+#ifndef _OUT_OPT_
+#define _OUT_OPT_       /*!< indicate that this is a optional output parameter. */
+#endif
+#ifndef _INOUT_OPT_
+#define _INOUT_OPT_     /*!< indicate that this is a optional io parameter. */
+#endif
 
 /*!< description */
 #ifndef CONFIG_WIFI_WAIT_TIME

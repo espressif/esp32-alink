@@ -1,22 +1,14 @@
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
 #include "freertos/semphr.h"
-#include "freertos/timers.h"
-#include "freertos/portmacro.h"
-#include "esp_log.h"
 
-#include "string.h"
-#include "esp_system.h"
-#include "esp_err.h"
-#include "nvs.h"
-#include "nvs_flash.h"
+#include "lwip/sockets.h"
 
 #include "alink_platform.h"
 #include "esp_alink.h"
-
-
-#define PLATFORM_TABLE_CONTENT_CNT(table) (sizeof(table)/sizeof(table[0]))
+#include "esp_alink_log.h"
+#include "esp_info_store.h"
 
 static const char *TAG = "alink_os";
 
@@ -25,12 +17,7 @@ typedef struct task_name_handler_content {
     void *handler;
 } task_infor_t;
 
-typedef enum {
-    RESULT_ERROR = -1,
-    RESULT_OK = 0,
-} esp_platform_result;
-
-task_infor_t task_infor[] = {
+static task_infor_t task_infor[] = {
     {"wsf_receive_worker", NULL},
     {"alcs_thread", NULL},
     {"work queue", NULL},
@@ -51,7 +38,9 @@ void platform_printf(const char *fmt, ...)
 void *platform_malloc(_IN_ uint32_t size)
 {
     void *c = malloc(size);
-    ALINK_ERROR_CHECK(c == NULL, NULL, "malloc size : %d", size);
+    ALINK_LOGV("malloc: ptr: %p, size: %d free_heap :%u", c, size, esp_get_free_heap_size());
+    ALINK_ERROR_CHECK(c == NULL, NULL, "malloc size :%d free_heap :%u\n",
+                      size, esp_get_free_heap_size());
     return c;
 }
 
@@ -60,7 +49,9 @@ void platform_free(_IN_ void *ptr)
     if (ptr == NULL) {
         return;
     }
+
     free(ptr);
+    ALINK_LOGV("free: ptr: %p free_heap :%u", ptr, esp_get_free_heap_size());
     ptr = NULL;
 }
 
@@ -83,7 +74,6 @@ void platform_mutex_destroy(_IN_ void *mutex)
 
 void platform_mutex_lock(_IN_ void *mutex)
 {
-    ALINK_PARAM_CHECK(mutex == NULL);
     //if can not get the mux,it will wait all the time
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreTake(mutex, portMAX_DELAY);
@@ -91,7 +81,6 @@ void platform_mutex_lock(_IN_ void *mutex)
 
 void platform_mutex_unlock(_IN_ void *mutex)
 {
-    ALINK_PARAM_CHECK(mutex == NULL);
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreGive(mutex);
 }
@@ -219,34 +208,17 @@ void platform_thread_exit(_IN_ void *thread)
 
 
 /************************ config ************************/
-const char *platform_get_storage_directory(void)
-{
-    ALINK_LOGE("------------------platform_get_storage_directory--------------------");
-    return NULL;
-}
-
+#define ALINK_CONFIG_KEY "alink_config"
 int platform_config_read(_OUT_ char *buffer, _IN_ int length)
 {
     ALINK_PARAM_CHECK(buffer == NULL);
     ALINK_PARAM_CHECK(length < 0);
+    ALINK_LOGV("buffer: %p, length: %d", buffer, length);
 
-    alink_err_t ret     = -1;
-    nvs_handle config_handle = 0;
-    memset(buffer, 0, length);
+    int ret = 0;
+    ret = esp_info_load(ALINK_CONFIG_KEY, buffer, length);
+    ALINK_ERROR_CHECK(ret < 0, ALINK_ERR, "esp_info_load");
 
-    ret = nvs_open("ALINK", NVS_READWRITE, &config_handle);
-    ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_open ret:%x", ret);
-    ret = nvs_get_blob(config_handle, "os_config", buffer, (size_t *)&length);
-    nvs_close(config_handle);
-
-    if (ret == ESP_ERR_NVS_NOT_FOUND) {
-        ALINK_LOGD("nvs_get_blob ret:%x,No data storage,the read data is empty", ret);
-        memset(buffer, 0, length);
-        return ALINK_ERR;
-    }
-    ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_get_blob ret:%x", ret);
-    ALINK_LOGD("platform_config_read: %02x %02x %02x length: %d",
-               buffer[0], buffer[1], buffer[2], length);
     return ALINK_OK;
 }
 
@@ -254,18 +226,13 @@ int platform_config_write(_IN_ const char *buffer, _IN_ int length)
 {
     ALINK_PARAM_CHECK(buffer == NULL);
     ALINK_PARAM_CHECK(length < 0);
-    ALINK_LOGD("platform_config_write: %02x %02x %02x length: %d",
-               buffer[0], buffer[1], buffer[2], length);
+    ALINK_LOGV("buffer: %p, length: %d", buffer, length);
 
-    alink_err_t ret     = -1;
-    nvs_handle config_handle = 0;
-    ret = nvs_open("ALINK", NVS_READWRITE, &config_handle);
-    ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_open ret:%x", ret);
-    ret = nvs_set_blob(config_handle, "os_config", buffer, length);
-    nvs_commit(config_handle);
-    nvs_close(config_handle);
-    ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_set_blob ret:%x", ret);
-    return ALINK_OK;
+    int ret = 0;
+    ret = esp_info_save(ALINK_CONFIG_KEY, buffer, length);
+    ALINK_ERROR_CHECK(ret < 0, ALINK_ERR, "esp_info_load");
+
+    return ALINK_ERR;
 }
 
 char *platform_get_chipid(_OUT_ char cid_str[PLATFORM_CID_LEN])

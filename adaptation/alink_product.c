@@ -25,8 +25,9 @@
  * PURPOSE, TITLE, AND NONINFRINGEMENT.
  */
 #include "alink_product.h"
-static const char *TAG = "alink_product";
+#include "esp_alink_log.h"
 
+static const char *TAG = "alink_product";
 static alink_product_t g_device_info;
 
 alink_err_t product_get(_OUT_ void *product_info)

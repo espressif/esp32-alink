@@ -22,12 +22,13 @@
  *
  */
 
-#include "c_types.h"
+#include <stdlib.h>
+#include <string.h>
 
-#include "esp_libc.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 
 #include "esp_info_store.h"
-#include "spi_flash.h"
 #include "esp_alink_log.h"
 
 static const char *TAG = "esp_info_store";
