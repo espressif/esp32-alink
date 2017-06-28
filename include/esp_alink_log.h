@@ -28,6 +28,10 @@
 #include "esp_log.h"
 #include "errno.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define ALINK_LOGE( format, ... ) ESP_LOGE(TAG, "[%s, %d]:" format, __func__, __LINE__, ##__VA_ARGS__)
 #define ALINK_LOGW( format, ... ) ESP_LOGW(TAG, "[%s, %d]:" format, __func__, __LINE__, ##__VA_ARGS__)
 #define ALINK_LOGI( format, ... ) ESP_LOGI(TAG, format, ##__VA_ARGS__)
@@ -43,4 +47,10 @@
 #undef LOG_LOCAL_LEVEL
 #define LOG_LOCAL_LEVEL CONFIG_LOG_ALINK_LEVEL
 
+#ifdef __cplusplus
+}
 #endif
+
+
+#endif/*!< __ESP_ALINK_LOG_H__ */
+

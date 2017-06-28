@@ -27,6 +27,10 @@
 
 #include "esp_system.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef int32_t alink_err_t;
 
 #ifndef ALINK_TRUE
@@ -193,11 +197,8 @@ alink_err_t alink_update_router();
  */
 alink_err_t alink_factory_setting();
 
-/**
- * @brief
- *
- * @param arg [description]
- */
-void alink_key_trigger(void *arg);
+#ifdef __cplusplus
+}
+#endif
 
 #endif
