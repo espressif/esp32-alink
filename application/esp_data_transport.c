@@ -84,6 +84,7 @@ static alink_err_t cloud_get_device_data(_IN_ char *json_buffer)
     if (size > ALINK_DATA_LEN) {
         ALINK_LOGW("json_buffer len:%d", size);
     }
+
     memcpy(q_data, json_buffer, size);
 
     if (xQueueSend(xQueueDownCmd, &q_data, 0) != pdTRUE) {
@@ -91,6 +92,7 @@ static alink_err_t cloud_get_device_data(_IN_ char *json_buffer)
         ret = ALINK_ERR;
         alink_free(q_data);
     }
+
     return ret;
 }
 
@@ -109,6 +111,7 @@ static alink_err_t cloud_set_device_data(_IN_ char *json_buffer)
     if (size > ALINK_DATA_LEN) {
         ALINK_LOGW("json_buffer len:%d", size);
     }
+
     memcpy(q_data, json_buffer, size);
 
     if (xQueueSend(xQueueDownCmd, &q_data, 0) != pdTRUE) {
@@ -116,6 +119,7 @@ static alink_err_t cloud_set_device_data(_IN_ char *json_buffer)
         ret = ALINK_ERR;
         alink_free(q_data);
     }
+
     return ret;
 }
 
@@ -123,8 +127,10 @@ static void alink_post_data(void *arg)
 {
     alink_err_t ret;
     char *up_cmd = NULL;
+
     for (; post_data_enable;) {
         ret = xQueueReceive(xQueueUpCmd, &up_cmd, portMAX_DELAY);
+
         if (ret != pdTRUE) {
             ALINK_LOGW("There is no data to report");
             continue;
@@ -132,14 +138,17 @@ static void alink_post_data(void *arg)
 
         ALINK_LOGV("up_cmd: %s", up_cmd);
         ret = alink_report(ALINK_METHOD_POST, up_cmd);
+
         if (ret != ALINK_OK) {
             ALINK_LOGW("post failed!");
             platform_msleep(1000);
         } else {
             alink_event_send(ALINK_EVENT_POST_CLOUD_DATA);
         }
+
         alink_free(up_cmd);
     }
+
     vTaskDelete(NULL);
 }
 
@@ -194,6 +203,7 @@ ssize_t alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
 {
     ALINK_PARAM_CHECK(up_cmd == NULL);
     ALINK_PARAM_CHECK(len == 0 || len > ALINK_DATA_LEN);
+
     if (!xQueueUpCmd) {
         return ALINK_ERR;
     }
@@ -204,6 +214,7 @@ ssize_t alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
 
     int size = strlen(RawDataHeader);
     strncpy((char *)q_data, RawDataHeader, ALINK_DATA_LEN);
+
     for (i = 0; i < len; i++) {
         size += snprintf((char *)q_data + size,
                          ALINK_DATA_LEN - size, "%02X", ((uint8_t *)up_cmd)[i]);
@@ -220,6 +231,7 @@ ssize_t alink_write(_IN_ const void *up_cmd, size_t len, int micro_seconds)
     } else {
         ret = size;
     }
+
     return ret;
 }
 
@@ -236,10 +248,12 @@ static alink_err_t raw_data_unserialize(char *json_buffer, uint8_t *raw_data, in
     }
 
     int raw_data_tmp = 0;
+
     for (i = 0; i < attr_len; i += 2) {
         sscanf(&attr_str[i], "%02x", &raw_data_tmp);
         raw_data[i / 2] = raw_data_tmp;
     }
+
     *raw_data_len = attr_len / 2;
 
     return ALINK_OK;
@@ -249,6 +263,7 @@ ssize_t alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
 {
     ALINK_PARAM_CHECK(down_cmd == NULL);
     ALINK_PARAM_CHECK(size == 0 || size > ALINK_DATA_LEN);
+
     if (!xQueueDownCmd) {
         return ALINK_ERR;
     }
@@ -262,6 +277,7 @@ ssize_t alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
         ret = ALINK_ERR;
         goto EXIT;
     }
+
     if (strlen(q_data) + 1 > ALINK_DATA_LEN) {
         ALINK_LOGW("read len > ALINK_DATA_LEN, len: %d", strlen(q_data) + 1);
         ret = ALINK_DATA_LEN;
@@ -269,6 +285,7 @@ ssize_t alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
     }
 
     ret = raw_data_unserialize(q_data, (uint8_t *)down_cmd, (int *)&size);
+
     if (ret != ALINK_OK) {
         ALINK_LOGW("raw_data_unserialize, ret:%d", ret);
     } else {
@@ -309,6 +326,7 @@ ssize_t alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
 {
     ALINK_PARAM_CHECK(down_cmd == NULL);
     ALINK_PARAM_CHECK(size == 0 || size > ALINK_DATA_LEN);
+
     if (!xQueueDownCmd) {
         return ALINK_ERR;
     }
@@ -331,6 +349,7 @@ ssize_t alink_read(_OUT_ void *down_cmd, size_t size, int micro_seconds)
         size = ALINK_DATA_LEN;
         q_data[size - 1] = '\0';
     }
+
     memcpy(down_cmd, q_data, size);
 
     alink_free(q_data);

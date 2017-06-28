@@ -31,12 +31,12 @@
 The descriptions of the json value node type
 **/
 enum JSONTYPE {
-    JNONE = -1,
-    JSTRING = 0,
-    JOBJECT,
-    JARRAY,
-    JNUMBER,
-    JTYPEMAX
+JNONE = -1,
+JSTRING = 0,
+JOBJECT,
+JARRAY,
+JNUMBER,
+JTYPEMAX
 };
 
 /**
@@ -124,7 +124,7 @@ char *json_get_next_object(int type, char *str, char **key, int *key_len, char *
  */
 #define json_object_for_each_kv(str, pos, key, klen, val, vlen, vtype) \
     for (pos = json_get_object(JOBJECT, str); \
-         pos!=0 && *pos!=0 && (pos=json_get_next_object(JOBJECT, pos, &key, &klen, &val, &vlen, &vtype))!=0; )
+            pos!=0 && *pos!=0 && (pos=json_get_next_object(JOBJECT, pos, &key, &klen, &val, &vlen, &vtype))!=0; )
 
 /**
  * @brief retrieve each entry from the json array
@@ -139,6 +139,6 @@ char *json_get_next_object(int type, char *str, char **key, int *key_len, char *
  */
 #define json_array_for_each_entry(str, pos, entry, len, type) \
     for (pos = json_get_object(JARRAY, str); \
-         pos!=0 && *pos!=0 && (pos=json_get_next_object(JARRAY, ++pos, 0, 0, &entry, &len, &type))!=0; )
+            pos!=0 && *pos!=0 && (pos=json_get_next_object(JARRAY, ++pos, 0, 0, &entry, &len, &type))!=0; )
 
 #endif

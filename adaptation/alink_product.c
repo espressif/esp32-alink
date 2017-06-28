@@ -24,6 +24,9 @@
  * INCLUDING THE WARRANTIES OF MERCHANTIBILITY, FITNESS FOR A PARTICULAR
  * PURPOSE, TITLE, AND NONINFRINGEMENT.
  */
+
+#include <string.h>
+
 #include "alink_product.h"
 #include "esp_alink_log.h"
 
@@ -46,37 +49,37 @@ alink_err_t product_set(_IN_ const void *product_info)
 
 char *product_get_name(char name_str[PRODUCT_NAME_LEN])
 {
-    return memcpy(name_str, g_device_info.name, PRODUCT_NAME_LEN);
+    return strncpy(name_str, g_device_info.name, PRODUCT_NAME_LEN);
 }
 
 char *product_get_version(char ver_str[PRODUCT_VERSION_LEN])
 {
-    return memcpy(ver_str, g_device_info.version, PRODUCT_VERSION_LEN);
+    return strncpy(ver_str, g_device_info.version, PRODUCT_VERSION_LEN);
 }
 
 char *product_get_model(char model_str[PRODUCT_MODEL_LEN])
 {
-    return memcpy(model_str, g_device_info.model, PRODUCT_MODEL_LEN);
+    return strncpy(model_str, g_device_info.model, PRODUCT_MODEL_LEN);
 }
 
 char *product_get_key(char key_str[PRODUCT_KEY_LEN])
 {
-    return memcpy(key_str, g_device_info.key, PRODUCT_KEY_LEN);
+    return strncpy(key_str, g_device_info.key, PRODUCT_KEY_LEN);
 }
 
 char *product_get_secret(char secret_str[PRODUCT_SECRET_LEN])
 {
-    return memcpy(secret_str, g_device_info.secret, PRODUCT_SECRET_LEN);
+    return strncpy(secret_str, g_device_info.secret, PRODUCT_SECRET_LEN);
 }
 
 char *product_get_debug_key(char key_str[PRODUCT_KEY_LEN])
 {
-    return memcpy(key_str, g_device_info.key_sandbox, PRODUCT_KEY_LEN);
+    return strncpy(key_str, g_device_info.key_sandbox, PRODUCT_KEY_LEN);
 }
 
 char *product_get_debug_secret(char secret_str[PRODUCT_SECRET_LEN])
 {
-    return memcpy(secret_str, g_device_info.secret_sandbox, PRODUCT_SECRET_LEN);
+    return strncpy(secret_str, g_device_info.secret_sandbox, PRODUCT_SECRET_LEN);
 }
 
 #include "esp_wifi.h"
@@ -84,6 +87,6 @@ char *product_get_sn(char sn_str[PRODUCT_SN_LEN])
 {
     uint8_t mac[6] = {0};
     ESP_ERROR_CHECK(esp_wifi_get_mac(ESP_IF_WIFI_STA, mac));
-    snprintf(sn_str, PLATFORM_MAC_LEN, "%02x%02x%02x%02x%02x%02x", MAC2STR(mac));
+    snprintf(sn_str, PRODUCT_SN_LEN, "%02x%02x%02x%02x%02x%02x", MAC2STR(mac));
     return sn_str;
 }

@@ -48,6 +48,7 @@ int esp_info_erase(const char *key)
     } else {
         ret = nvs_erase_key(handle, key);
     }
+
     nvs_commit(handle);
     ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_erase_key ret:%x", ret);
     return ALINK_OK;
@@ -70,10 +71,12 @@ ssize_t esp_info_save(const char *key, const void *value, size_t length)
      */
     char *tmp = (char *)malloc(length);
     ret = nvs_get_blob(handle, key, tmp, &length);
+
     if ((ret == ESP_OK) && !memcmp(tmp, value, length)) {
         free(tmp);
         return length;
     }
+
     free(tmp);
 
     ret = nvs_set_blob(handle, key, value, length);
@@ -97,10 +100,12 @@ ssize_t esp_info_load(const char *key, void *value, size_t length)
     ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_open ret:%x", ret);
     ret = nvs_get_blob(handle, key, value, &length);
     nvs_close(handle);
+
     if (ret == ESP_ERR_NVS_NOT_FOUND) {
         ALINK_LOGW("No data storage,the load data is empty");
         return ALINK_ERR;
     }
+
     ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_get_blob ret:%x", ret);
     return length;
 }

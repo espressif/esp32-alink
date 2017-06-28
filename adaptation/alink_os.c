@@ -10,6 +10,9 @@
 #include "esp_alink_log.h"
 #include "esp_info_store.h"
 
+#define ALINK_CHIPID              "esp32"
+#define MODULE_NAME               "ESP-WROOM-32"
+
 static const char *TAG = "alink_os";
 
 typedef struct task_name_handler_content {
@@ -104,10 +107,12 @@ void platform_semaphore_destroy(_IN_ void *sem)
 int platform_semaphore_wait(_IN_ void *sem, _IN_ uint32_t timeout_ms)
 {
     ALINK_PARAM_CHECK(sem == NULL);
+
     //Take the Semaphore
     if (pdTRUE == xSemaphoreTake(sem, timeout_ms / portTICK_RATE_MS)) {
         return 0;
     }
+
     return -1;
 }
 
@@ -130,6 +135,7 @@ uint32_t platform_get_time_ms(void)
 int platform_thread_get_stack_size(_IN_ const char *thread_name)
 {
     ALINK_PARAM_CHECK(thread_name == NULL);
+
     if (0 == strcmp(thread_name, "work queue")) {
         ALINK_LOGD("get work queue");
         return 0x800;
@@ -155,12 +161,15 @@ static int get_task_name_location(_IN_ const char *name)
 {
     uint32_t i = 0;
     uint32_t len = 0;
+
     for (i = 0; task_infor[i].task_name != NULL; i++) {
         len = (strlen(task_infor[i].task_name) >= configMAX_TASK_NAME_LEN ? configMAX_TASK_NAME_LEN : strlen(task_infor[i].task_name));
+
         if (0 == memcmp(task_infor[i].task_name, name, len)) {
             return i;
         }
     }
+
     return ALINK_ERR;
 }
 
@@ -184,19 +193,23 @@ int platform_thread_create(_OUT_ void **thread,
     alink_err_t ret;
 
     uint8_t task_priority = DEFAULU_TASK_PRIOTY;
+
     if (!strcmp(name, "work queue")) {
         task_priority++;
     }
+
     ret = xTaskCreate((TaskFunction_t)start_routine, name, (stack_size) * 2, arg, task_priority, thread);
     ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "thread_create name: %s, stack_size: %d, ret: %d", name, stack_size, ret);
     ALINK_LOGD("thread_create name: %s, stack_size: %d, priority:%d, thread_handle: %p",
                name, stack_size * 2, task_priority, *thread);
 
     int pos = get_task_name_location(name);
+
     if (pos == ALINK_ERR) {
         ALINK_LOGE("get_task_name_location name: %s", name);
         vTaskDelete(*thread);
     }
+
     set_task_name_handler(pos, *thread);
     return ALINK_OK;
 }

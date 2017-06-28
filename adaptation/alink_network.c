@@ -12,7 +12,7 @@
 #define ALINK_SOCKET_TIMEOUT 20
 static const char *TAG = "alink_network";
 
-static alink_err_t network_create_socket( pplatform_netaddr_t netaddr, int type, struct sockaddr_in *paddr, int *psock)
+static alink_err_t network_create_socket(pplatform_netaddr_t netaddr, int type, struct sockaddr_in *paddr, int *psock)
 {
     ALINK_PARAM_CHECK(netaddr == NULL);
     ALINK_PARAM_CHECK(paddr == NULL);
@@ -37,6 +37,7 @@ static alink_err_t network_create_socket( pplatform_netaddr_t netaddr, int type,
     }
 
     *psock = socket(AF_INET, type, 0);
+
     if (*psock < 0) {
         return -1;
     }
@@ -49,22 +50,34 @@ static alink_err_t network_create_socket( pplatform_netaddr_t netaddr, int type,
 
     if (type == SOCK_DGRAM) {
         ret = setsockopt(*psock, SOL_SOCKET, SO_BROADCAST, &opt_val, sizeof(opt_val));
+
         if (ret != 0) {
             close((int)*psock);
         }
+
         ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_BROADCAST errno: %d", errno);
     }
 
     struct timeval timeout = {ALINK_SOCKET_TIMEOUT, 0};
+
     ret = setsockopt((int) * psock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval));
+
     ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_RCVTIMEO errno: %d", errno);
+
+    ALINK_LOGD("setsockopt: recv timeout %dms", ALINK_SOCKET_TIMEOUT);
+
     ret = setsockopt((int) * psock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval));
+
     ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_SNDTIMEO errno: %d", errno);
-    ALINK_LOGD("setsockopt: socket timeout %ds", ALINK_SOCKET_TIMEOUT);
+
+    ALINK_LOGD("setsockopt: send timeout %dms", ALINK_SOCKET_TIMEOUT);
 
     paddr->sin_addr.s_addr = ip;
+
     paddr->sin_family = AF_INET;
-    paddr->sin_port = htons( netaddr->port );
+
+    paddr->sin_port = htons(netaddr->port);
+
     return ALINK_OK;
 }
 
@@ -79,12 +92,14 @@ void *platform_udp_server_create(_IN_ uint16_t port)
     ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "network_create_socket");
 
     ret = bind(server_socket, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
+
     if (-1 == bind(server_socket, (struct sockaddr *)&addr, sizeof(struct sockaddr_in))) {
         platform_udp_close((void *)server_socket);
         ALINK_LOGE("socket bind");
         perror("socket bind");
         return NULL;
     }
+
     return (void *)server_socket;
 }
 
@@ -126,11 +141,13 @@ void *platform_udp_multicast_server_create(pplatform_netaddr_t netaddr)
 
     mreq.imr_multiaddr.s_addr = inet_addr(netaddr->host);
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+
     if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &mreq, sizeof(mreq)) < 0) {
         ALINK_LOGE("setsockopt IP_ADD_MEMBERSHIP");
         platform_udp_close((void *)sock);
         return NULL;
     }
+
     return (void *)sock;
 }
 
@@ -160,7 +177,7 @@ int platform_udp_sendto(
     addr.sin_addr.s_addr = *((u_int *)(hp->h_addr));
     //addr.sin_addr.S_un.S_addr = *((u_int *)(hp->h_addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = htons( netaddr->port );
+    addr.sin_port = htons(netaddr->port);
 
     ret_code = sendto((int)handle,
                       buffer,
@@ -190,10 +207,12 @@ int platform_udp_recvfrom(
 
     if (NULL != netaddr) {
         netaddr->port = ntohs(addr.sin_port);
+
         if (NULL != netaddr->host) {
             strcpy(netaddr->host, inet_ntoa(addr.sin_addr));
         }
     }
+
     return ret_code;
 }
 
@@ -219,6 +238,7 @@ void *platform_tcp_server_create(_IN_ uint16_t port)
         platform_tcp_close((void *)server_socket);
         return NULL;
     }
+
     return (void *)server_socket;
 }
 
@@ -253,6 +273,7 @@ void *platform_tcp_client_connect(_IN_ pplatform_netaddr_t netaddr)
         platform_tcp_close((void *)sock);
         return NULL;
     }
+
     return (void *)sock;
 }
 
@@ -296,6 +317,7 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
     struct timeval *ptimeval = &timeout_value;
     fd_set r_set, w_set;
     int max_fd = -1;
+
     if (PLATFORM_WAIT_INFINITE == timeout_ms) {
         ptimeval = NULL;
     } else {
@@ -307,17 +329,11 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
     FD_ZERO(&w_set);
 
     if (read_fds) {
-        if (((int *)read_fds)[1] == 0 && ((int *)read_fds)[2] == 0) {
-            ALINK_LOGD("read_fds: %d %d %d %d",
-                       ((int *)read_fds)[0], ((int *)read_fds)[1], ((int *)read_fds)[2], ((int *)read_fds)[3]);
-            int tmp_fd[PLATFORM_SOCKET_MAXNUMS] = {((int *)read_fds)[0], -1, -1, -1, -1, -1, -1, -1, -1, -1};
-            memcpy((int *)read_fds, tmp_fd, sizeof(tmp_fd));
-        }
-
         for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
             if (PLATFORM_INVALID_FD != read_fds[i]) {
                 FD_SET((int)read_fds[i], &r_set);
             }
+
             if ((int)read_fds[i] > max_fd) {
                 max_fd = (int)read_fds[i];
             }
@@ -326,9 +342,10 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
 
     if (write_fds) {
         for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
-            if ( PLATFORM_INVALID_FD != write_fds[i] ) {
+            if (PLATFORM_INVALID_FD != write_fds[i]) {
                 FD_SET((int)write_fds[i], &w_set);
             }
+
             if ((int)write_fds[i] > max_fd) {
                 max_fd = (int)write_fds[i];
             }
@@ -336,6 +353,24 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
     }
 
     ret = select(max_fd + 1, &r_set, &w_set, NULL, ptimeval);
+
+    if (ret < 0 && read_fds) {
+        printf("\nread_fds:");
+
+        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
+            printf("%d ", (int)read_fds[i]);
+        }
+    }
+
+    if (ret < 0 && write_fds) {
+        printf("\nwrite_fds:");
+
+        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
+            printf("%d ", (int)write_fds[i]);
+        }
+	printf("\n");
+    }
+
     if (ret > 0) {
         if (read_fds) {
             for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
@@ -368,19 +403,6 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
         }
     }
 
-    if (ret < 0 && read_fds) {
-        printf("read_fds:\n");
-        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
-            printf("%d \n", (int)read_fds[i]);
-        }
-    }
-
-    if (ret < 0 && write_fds) {
-        printf("write_fds:\n");
-        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
-            printf("%d \n", (int)write_fds[i]);
-        }
-    }
     ALINK_ERROR_CHECK(ret < 0, ret, "select max_fd: %d, ret:%d, errno: %d", max_fd, ret, errno);
     return ret;
 }

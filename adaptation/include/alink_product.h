@@ -1,6 +1,6 @@
 
-#ifndef __HV_PLATFORM_H__
-#define __HV_PLATFORM_H__
+#ifndef __ALINK_PRODUCT_H__
+#define __ALINK_PRODUCT_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,9 +20,7 @@ extern "C" {
 #define PRODUCT_UUID_LEN        (32 + 1)
 #define PRODUCT_VERSION_LEN     (16 + 1)
 #define PRODUCT_NAME_LEN        (32 + 1)
-#define PRODUCT_ASR_APP_KEY_LEN (64)
 
-#define PRODUCT_CID_LEN         (64 + 1)
 /**
  * @brief Get the product version string.
  *
@@ -42,8 +40,6 @@ alink_err_t product_get(_OUT_ void *product_info);
  * @note
  */
 alink_err_t product_set(_IN_ const void *product_info);
-
-
 
 /**
  * @brief Get the product version string.
@@ -124,13 +120,6 @@ char *product_get_debug_key(char key_str[PRODUCT_KEY_LEN]);
  * @note None.
  */
 char *product_get_debug_secret(char secret_str[PRODUCT_SECRET_LEN]);
-
-
-char *product_get_asr_appkey(char app_key[PRODUCT_ASR_APP_KEY_LEN]);
-
-
-char *product_get_audio_format();
-
 
 /** @} */// end of group_product
 

@@ -58,8 +58,6 @@ typedef int32_t alink_err_t;
 #define ALINK_PASSTHROUGH
 #endif
 
-#define ALINK_CHIPID              "esp32"
-#define MODULE_NAME               "ESP-WROOM-32"
 #define ALINK_DATA_LEN            512
 
 #define EVENT_HANDLER_CB_STACK    (4 * 1024)

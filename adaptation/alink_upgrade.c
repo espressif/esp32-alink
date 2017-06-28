@@ -39,7 +39,7 @@ int platform_flash_program_write_block(_IN_ char *buffer, _IN_ uint32_t length)
     ALINK_PARAM_CHECK(buffer == NULL);
 
     alink_err_t err;
-    err = esp_ota_write( update_handle, (const void *)buffer, length);
+    err = esp_ota_write(update_handle, (const void *)buffer, length);
     ALINK_ERROR_CHECK(err != ESP_OK, ALINK_ERR, "Error: esp_ota_write failed! err=0x%x", err);
 
     binary_file_length += length;
