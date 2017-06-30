@@ -1,49 +1,119 @@
-#ifndef __ALINK_USER_CONFIG_H__
-#define __ALINK_USER_CONFIG_H__
-#include <stdio.h>
-#include "alink_export.h"
-#include "platform.h"
-#include "assert.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "lwip/sockets.h"
-#include "json_parser.h"
+/*
+ * ESPRESSIF MIT License
+ *
+ * Copyright (c) 2017 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
+ *
+ * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP8266 only, in which case,
+ * it is free of charge, to any person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or
+ * substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ */
 
-#include "alink_log.h"
+#ifndef __ESP_ALINK_H__
+#define __ESP_ALINK_H__
+
+#include "esp_system.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef int32_t alink_err_t;
+
+#ifndef ALINK_TRUE
+#define ALINK_TRUE  1
+#endif
+#ifndef ALINK_FALSE
+#define ALINK_FALSE 0
+#endif
+#ifndef ALINK_OK
+#define ALINK_OK    0
+#endif
+#ifndef ALINK_ERR
+#define ALINK_ERR   -1
+#endif
+
+#ifndef _IN_
+#define _IN_            /*!< indicate that this is a input parameter. */
+#endif
+#ifndef _OUT_
+#define _OUT_           /*!< indicate that this is a output parameter. */
+#endif
+#ifndef _INOUT_
+#define _INOUT_         /*!< indicate that this is a io parameter. */
+#endif
+#ifndef _IN_OPT_
+#define _IN_OPT_        /*!< indicate that this is a optional input parameter. */
+#endif
+#ifndef _OUT_OPT_
+#define _OUT_OPT_       /*!< indicate that this is a optional output parameter. */
+#endif
+#ifndef _INOUT_OPT_
+#define _INOUT_OPT_     /*!< indicate that this is a optional io parameter. */
+#endif
 
 /*!< description */
 #ifndef CONFIG_WIFI_WAIT_TIME
-#define CONFIG_WIFI_WAIT_TIME     60
+#define CONFIG_WIFI_WAIT_TIME         60
 #endif
-#ifndef CONFIG_ALINK_RESET_KEY_IO
-#define CONFIG_ALINK_RESET_KEY_IO 0
+
+#ifndef CONFIG_ALINK_DATA_LEN
+#define CONFIG_ALINK_DATA_LEN         1024
 #endif
 
 #ifndef CONFIG_ALINK_TASK_PRIOTY
-#define CONFIG_ALINK_TASK_PRIOTY  6
+#define CONFIG_ALINK_TASK_PRIOTY      6
 #endif
 
-#define WIFI_WAIT_TIME            (CONFIG_WIFI_WAIT_TIME * 1000)
-#define ALINK_RESET_KEY_IO        CONFIG_ALINK_RESET_KEY_IO
-#define DEFAULU_TASK_PRIOTY       CONFIG_ALINK_TASK_PRIOTY
+#ifndef CONFIG_DOWN_CMD_QUEUE_NUM
+#define CONFIG_DOWN_CMD_QUEUE_NUM     3
+#endif
 
+#ifndef CONFIG_UP_CMD_QUEUE_NUM
+#define CONFIG_UP_CMD_QUEUE_NUM       3
+#endif
+
+#ifndef CONFIG_EVENT_STACK_SIZE
+#define CONFIG_EVENT_STACK_SIZE 4096
+#endif
+
+#ifndef CONFIG_ALINK_POST_DATA_STACK_SIZE
+#define CONFIG_ALINK_POST_DATA_STACK_SIZE  4096
+#endif
+
+#define WIFI_WAIT_TIME                (CONFIG_WIFI_WAIT_TIME * 1000)
+#define ALINK_DATA_LEN                CONFIG_ALINK_DATA_LEN
+#define DEFAULU_TASK_PRIOTY           CONFIG_ALINK_TASK_PRIOTY
+#define ALINK_EVENT_STACK_SIZE        CONFIG_ALINK_EVENT_STACK_SIZE
+#define ALINK_POST_DATA_STACK_SIZE    CONFIG_ALINK_POST_DATA_STACK_SIZE
+
+#define DOWN_CMD_QUEUE_NUM            CONFIG_DOWN_CMD_QUEUE_NUM
+#define UP_CMD_QUEUE_NUM              CONFIG_UP_CMD_QUEUE_NUM
 
 #ifdef CONFIG_ALINK_PASSTHROUGH
 #define ALINK_PASSTHROUGH
 #endif
 
-#define ALINK_CHIPID              "esp32"
-#define MODULE_NAME               "ESP-WROOM-32"
-#define ALINK_DATA_LEN            512
-
-#define EVENT_HANDLER_CB_STACK    (4 * 1024)
 typedef enum {
     ALINK_EVENT_CLOUD_CONNECTED = 0,/*!< ESP32 connected from alink cloude */
     ALINK_EVENT_CLOUD_DISCONNECTED, /*!< ESP32 disconnected from alink cloude */
     ALINK_EVENT_GET_DEVICE_DATA,    /*!< Alink cloud requests data from the device */
     ALINK_EVENT_SET_DEVICE_DATA,    /*!< Alink cloud to send data to the device */
     ALINK_EVENT_POST_CLOUD_DATA,    /*!< The device sends data to alink cloud  */
+    ALINK_EVENT_POST_CLOUD_DATA_FAIL, /*!< The device sends data to alink cloud fialed  */
     ALINK_EVENT_STA_GOT_IP,         /*!< ESP32 station got IP from connected AP */
     ALINK_EVENT_STA_DISCONNECTED,   /*!< ESP32 station disconnected from AP */
     ALINK_EVENT_CONFIG_NETWORK,     /*!< The equipment enters the distribution mode */
@@ -146,11 +216,8 @@ alink_err_t alink_update_router();
  */
 alink_err_t alink_factory_setting();
 
-/**
- * @brief
- *
- * @param arg [description]
- */
-void alink_key_trigger(void *arg);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -24,8 +24,8 @@
  * INCLUDING THE WARRANTIES OF MERCHANTIBILITY, FITNESS FOR A PARTICULAR
  * PURPOSE, TITLE, AND NONINFRINGEMENT.
  */
-#ifndef __PLATFORM_H__
-#define __PLATFORM_H__
+#ifndef __ALINK_PLATFORM_H__
+#define __ALINK_PLATFORM_H__
 
 #ifdef __cplusplus
 extern "C"
@@ -108,7 +108,7 @@ typedef unsigned long long uint64_t;
 int platform_thread_create(
     _OUT_ void **thread,
     _IN_ const char *name,
-    _IN_ void *(*start_routine) (void *),
+    _IN_ void *(*start_routine)(void *),
     _IN_ void *arg,
     _IN_ void *stack,
     _IN_ uint32_t stack_size,
@@ -1266,7 +1266,7 @@ int platform_aes128_cbc_encrypt(
     _IN_ p_aes128_t aes,
     _IN_ const void *src,
     _IN_ size_t blockNum,
-    _OUT_ void *dst );
+    _OUT_ void *dst);
 
 /**
  * @brief decrypt data with aes (cbc/128bit key).
@@ -1287,7 +1287,7 @@ int platform_aes128_cbc_decrypt(
     _IN_ p_aes128_t aes,
     _IN_ const void *src,
     _IN_ size_t blockNum,
-    _OUT_ void *dst );
+    _OUT_ void *dst);
 
 /**
  * @brief get the information of the connected AP.

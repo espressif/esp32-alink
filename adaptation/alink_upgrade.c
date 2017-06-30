@@ -1,30 +1,41 @@
+/*
+ * ESPRESSIF MIT License
+ *
+ * Copyright (c) 2017 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
+ *
+ * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP8266 only, in which case,
+ * it is free of charge, to any person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or
+ * substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ */
+
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
 
 #include "esp_system.h"
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
-#include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 
-#include "nvs_flash.h"
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include "lwip/netdb.h"
-#include "lwip/dns.h"
 #include "esp_alink.h"
-
-#define BUFFSIZE 1024
+#include "esp_alink_log.h"
 
 static const char *TAG = "alink_upgrade";
 
 /* update handle : set by esp_ota_begin(), must be freed via esp_ota_end() */
-esp_ota_handle_t update_handle = 0 ;
-const esp_partition_t *update_partition = NULL;
+static esp_ota_handle_t update_handle = 0 ;
+static const esp_partition_t *update_partition = NULL;
 static int binary_file_length = 0;
 
 void platform_flash_program_start(void)
@@ -54,7 +65,7 @@ int platform_flash_program_write_block(_IN_ char *buffer, _IN_ uint32_t length)
     ALINK_PARAM_CHECK(buffer == NULL);
 
     alink_err_t err;
-    err = esp_ota_write( update_handle, (const void *)buffer, length);
+    err = esp_ota_write(update_handle, (const void *)buffer, length);
     ALINK_ERROR_CHECK(err != ESP_OK, ALINK_ERR, "Error: esp_ota_write failed! err=0x%x", err);
 
     binary_file_length += length;

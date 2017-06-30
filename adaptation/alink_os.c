@@ -1,22 +1,41 @@
+/*
+ * ESPRESSIF MIT License
+ *
+ * Copyright (c) 2017 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
+ *
+ * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP8266 only, in which case,
+ * it is free of charge, to any person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or
+ * substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ */
+
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
 #include "freertos/semphr.h"
-#include "freertos/timers.h"
-#include "freertos/portmacro.h"
-#include "esp_log.h"
 
-#include "string.h"
-#include "esp_system.h"
-#include "esp_err.h"
-#include "nvs.h"
-#include "nvs_flash.h"
+#include "lwip/sockets.h"
 
-#include "platform.h"
+#include "alink_platform.h"
 #include "esp_alink.h"
+#include "esp_alink_log.h"
+#include "esp_info_store.h"
 
-
-#define PLATFORM_TABLE_CONTENT_CNT(table) (sizeof(table)/sizeof(table[0]))
+#define ALINK_CHIPID              "esp32"
+#define MODULE_NAME               "ESP-WROOM-32"
 
 static const char *TAG = "alink_os";
 
@@ -25,12 +44,7 @@ typedef struct task_name_handler_content {
     void *handler;
 } task_infor_t;
 
-typedef enum {
-    RESULT_ERROR = -1,
-    RESULT_OK = 0,
-} esp_platform_result;
-
-task_infor_t task_infor[] = {
+static task_infor_t task_infor[] = {
     {"wsf_receive_worker", NULL},
     {"alcs_thread", NULL},
     {"work queue", NULL},
@@ -51,7 +65,9 @@ void platform_printf(const char *fmt, ...)
 void *platform_malloc(_IN_ uint32_t size)
 {
     void *c = malloc(size);
-    ALINK_ERROR_CHECK(c == NULL, NULL, "malloc size : %d", size);
+    ALINK_LOGV("malloc: ptr: %p, size: %d free_heap :%u", c, size, esp_get_free_heap_size());
+    ALINK_ERROR_CHECK(c == NULL, NULL, "malloc size :%d free_heap :%u\n",
+                      size, esp_get_free_heap_size());
     return c;
 }
 
@@ -60,7 +76,9 @@ void platform_free(_IN_ void *ptr)
     if (ptr == NULL) {
         return;
     }
+
     free(ptr);
+    ALINK_LOGV("free: ptr: %p free_heap :%u", ptr, esp_get_free_heap_size());
     ptr = NULL;
 }
 
@@ -83,7 +101,6 @@ void platform_mutex_destroy(_IN_ void *mutex)
 
 void platform_mutex_lock(_IN_ void *mutex)
 {
-    ALINK_PARAM_CHECK(mutex == NULL);
     //if can not get the mux,it will wait all the time
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreTake(mutex, portMAX_DELAY);
@@ -91,7 +108,6 @@ void platform_mutex_lock(_IN_ void *mutex)
 
 void platform_mutex_unlock(_IN_ void *mutex)
 {
-    ALINK_PARAM_CHECK(mutex == NULL);
     ALINK_PARAM_CHECK(mutex == NULL);
     xSemaphoreGive(mutex);
 }
@@ -115,10 +131,12 @@ void platform_semaphore_destroy(_IN_ void *sem)
 int platform_semaphore_wait(_IN_ void *sem, _IN_ uint32_t timeout_ms)
 {
     ALINK_PARAM_CHECK(sem == NULL);
+
     //Take the Semaphore
     if (pdTRUE == xSemaphoreTake(sem, timeout_ms / portTICK_RATE_MS)) {
         return 0;
     }
+
     return -1;
 }
 
@@ -141,6 +159,7 @@ uint32_t platform_get_time_ms(void)
 int platform_thread_get_stack_size(_IN_ const char *thread_name)
 {
     ALINK_PARAM_CHECK(thread_name == NULL);
+
     if (0 == strcmp(thread_name, "work queue")) {
         ALINK_LOGD("get work queue");
         return 0x800;
@@ -166,12 +185,15 @@ static int get_task_name_location(_IN_ const char *name)
 {
     uint32_t i = 0;
     uint32_t len = 0;
+
     for (i = 0; task_infor[i].task_name != NULL; i++) {
         len = (strlen(task_infor[i].task_name) >= configMAX_TASK_NAME_LEN ? configMAX_TASK_NAME_LEN : strlen(task_infor[i].task_name));
+
         if (0 == memcmp(task_infor[i].task_name, name, len)) {
             return i;
         }
     }
+
     return ALINK_ERR;
 }
 
@@ -195,19 +217,23 @@ int platform_thread_create(_OUT_ void **thread,
     alink_err_t ret;
 
     uint8_t task_priority = DEFAULU_TASK_PRIOTY;
+
     if (!strcmp(name, "work queue")) {
         task_priority++;
     }
+
     ret = xTaskCreate((TaskFunction_t)start_routine, name, (stack_size) * 2, arg, task_priority, thread);
     ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "thread_create name: %s, stack_size: %d, ret: %d", name, stack_size, ret);
     ALINK_LOGD("thread_create name: %s, stack_size: %d, priority:%d, thread_handle: %p",
                name, stack_size * 2, task_priority, *thread);
 
     int pos = get_task_name_location(name);
+
     if (pos == ALINK_ERR) {
         ALINK_LOGE("get_task_name_location name: %s", name);
         vTaskDelete(*thread);
     }
+
     set_task_name_handler(pos, *thread);
     return ALINK_OK;
 }
@@ -219,34 +245,17 @@ void platform_thread_exit(_IN_ void *thread)
 
 
 /************************ config ************************/
-const char *platform_get_storage_directory(void)
-{
-    ALINK_LOGE("------------------platform_get_storage_directory--------------------");
-    return NULL;
-}
-
+#define ALINK_CONFIG_KEY "alink_config"
 int platform_config_read(_OUT_ char *buffer, _IN_ int length)
 {
     ALINK_PARAM_CHECK(buffer == NULL);
     ALINK_PARAM_CHECK(length < 0);
+    ALINK_LOGV("buffer: %p, length: %d", buffer, length);
 
-    alink_err_t ret     = -1;
-    nvs_handle config_handle = 0;
-    memset(buffer, 0, length);
+    int ret = 0;
+    ret = esp_info_load(ALINK_CONFIG_KEY, buffer, length);
+    ALINK_ERROR_CHECK(ret < 0, ALINK_ERR, "esp_info_load");
 
-    ret = nvs_open("ALINK", NVS_READWRITE, &config_handle);
-    ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_open ret:%x", ret);
-    ret = nvs_get_blob(config_handle, "os_config", buffer, (size_t *)&length);
-    nvs_close(config_handle);
-
-    if (ret == ESP_ERR_NVS_NOT_FOUND) {
-        ALINK_LOGD("nvs_get_blob ret:%x,No data storage,the read data is empty", ret);
-        memset(buffer, 0, length);
-        return ALINK_ERR;
-    }
-    ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_get_blob ret:%x", ret);
-    ALINK_LOGD("platform_config_read: %02x %02x %02x length: %d",
-               buffer[0], buffer[1], buffer[2], length);
     return ALINK_OK;
 }
 
@@ -254,18 +263,13 @@ int platform_config_write(_IN_ const char *buffer, _IN_ int length)
 {
     ALINK_PARAM_CHECK(buffer == NULL);
     ALINK_PARAM_CHECK(length < 0);
-    ALINK_LOGD("platform_config_write: %02x %02x %02x length: %d",
-               buffer[0], buffer[1], buffer[2], length);
+    ALINK_LOGV("buffer: %p, length: %d", buffer, length);
 
-    alink_err_t ret     = -1;
-    nvs_handle config_handle = 0;
-    ret = nvs_open("ALINK", NVS_READWRITE, &config_handle);
-    ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_open ret:%x", ret);
-    ret = nvs_set_blob(config_handle, "os_config", buffer, length);
-    nvs_commit(config_handle);
-    nvs_close(config_handle);
-    ALINK_ERROR_CHECK(ret != ESP_OK, ALINK_ERR, "nvs_set_blob ret:%x", ret);
-    return ALINK_OK;
+    int ret = 0;
+    ret = esp_info_save(ALINK_CONFIG_KEY, buffer, length);
+    ALINK_ERROR_CHECK(ret < 0, ALINK_ERR, "esp_info_load");
+
+    return ALINK_ERR;
 }
 
 char *platform_get_chipid(_OUT_ char cid_str[PLATFORM_CID_LEN])

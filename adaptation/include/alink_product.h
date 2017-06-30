@@ -1,12 +1,38 @@
+/*
+ * Copyright (c) 2014-2016 Alibaba Group. All rights reserved.
+ *
+ * Alibaba Group retains all right, title and interest (including all
+ * intellectual property rights) in and to this computer program, which is
+ * protected by applicable intellectual property laws.  Unless you have
+ * obtained a separate written license from Alibaba Group., you are not
+ * authorized to utilize all or a part of this computer program for any
+ * purpose (including reproduction, distribution, modification, and
+ * compilation into object code), and you must immediately destroy or
+ * return to Alibaba Group all copies of this computer program.  If you
+ * are licensed by Alibaba Group, your rights to utilize this computer
+ * program are limited by the terms of that license.  To obtain a license,
+ * please contact Alibaba Group.
+ *
+ * This computer program contains trade secrets owned by Alibaba Group.
+ * and, unless unauthorized by Alibaba Group in writing, you agree to
+ * maintain the confidentiality of this computer program and related
+ * information and to not disclose this computer program and related
+ * information to any other person or entity.
+ *
+ * THIS COMPUTER PROGRAM IS PROVIDED AS IS WITHOUT ANY WARRANTIES, AND
+ * Alibaba Group EXPRESSLY DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED,
+ * INCLUDING THE WARRANTIES OF MERCHANTIBILITY, FITNESS FOR A PARTICULAR
+ * PURPOSE, TITLE, AND NONINFRINGEMENT.
+ */
 
-#ifndef __HV_PLATFORM_H__
-#define __HV_PLATFORM_H__
+#ifndef __ALINK_PRODUCT_H__
+#define __ALINK_PRODUCT_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "platform.h"
+#include "alink_platform.h"
 #include "esp_alink.h"
 
 /** @defgroup group_product product
@@ -20,9 +46,7 @@ extern "C" {
 #define PRODUCT_UUID_LEN        (32 + 1)
 #define PRODUCT_VERSION_LEN     (16 + 1)
 #define PRODUCT_NAME_LEN        (32 + 1)
-#define PRODUCT_ASR_APP_KEY_LEN (64)
 
-#define PRODUCT_CID_LEN         (64 + 1)
 /**
  * @brief Get the product version string.
  *
@@ -42,8 +66,6 @@ alink_err_t product_get(_OUT_ void *product_info);
  * @note
  */
 alink_err_t product_set(_IN_ const void *product_info);
-
-
 
 /**
  * @brief Get the product version string.
@@ -124,13 +146,6 @@ char *product_get_debug_key(char key_str[PRODUCT_KEY_LEN]);
  * @note None.
  */
 char *product_get_debug_secret(char secret_str[PRODUCT_SECRET_LEN]);
-
-
-char *product_get_asr_appkey(char app_key[PRODUCT_ASR_APP_KEY_LEN]);
-
-
-char *product_get_audio_format();
-
 
 /** @} */// end of group_product
 

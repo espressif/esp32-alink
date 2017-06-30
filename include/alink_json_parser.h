@@ -24,8 +24,12 @@
  * INCLUDING THE WARRANTIES OF MERCHANTIBILITY, FITNESS FOR A PARTICULAR
  * PURPOSE, TITLE, AND NONINFRINGEMENT.
  */
-#ifndef JSON_PARSER_H
-#define JSON_PARSER_H
+#ifndef __ALINK_JSON_PARSER_H__
+#define __ALINK_JSON_PARSER_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
 The descriptions of the json value node type
@@ -124,7 +128,7 @@ char *json_get_next_object(int type, char *str, char **key, int *key_len, char *
  */
 #define json_object_for_each_kv(str, pos, key, klen, val, vlen, vtype) \
     for (pos = json_get_object(JOBJECT, str); \
-         pos!=0 && *pos!=0 && (pos=json_get_next_object(JOBJECT, pos, &key, &klen, &val, &vlen, &vtype))!=0; )
+            pos!=0 && *pos!=0 && (pos=json_get_next_object(JOBJECT, pos, &key, &klen, &val, &vlen, &vtype))!=0; )
 
 /**
  * @brief retrieve each entry from the json array
@@ -139,6 +143,10 @@ char *json_get_next_object(int type, char *str, char **key, int *key_len, char *
  */
 #define json_array_for_each_entry(str, pos, entry, len, type) \
     for (pos = json_get_object(JARRAY, str); \
-         pos!=0 && *pos!=0 && (pos=json_get_next_object(JARRAY, ++pos, 0, 0, &entry, &len, &type))!=0; )
+            pos!=0 && *pos!=0 && (pos=json_get_next_object(JARRAY, ++pos, 0, 0, &entry, &len, &type))!=0; )
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

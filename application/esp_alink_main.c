@@ -1,34 +1,49 @@
-/******************************************************************************
- * Copyright (C) 2014 -2016  Espressif System
+/*
+ * ESPRESSIF MIT License
  *
- * FileName: app_main.c
+ * Copyright (c) 2017 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
  *
- * Description:
+ * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP8266 only, in which case,
+ * it is free of charge, to any person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
  *
- * Modification history:
- * 2016/11/16, v0.0.1 create this file.
-*******************************************************************************/
+ * The above copyright notice and this permission notice shall be included in all copies or
+ * substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ */
+
+#include <stdlib.h>
+#include <string.h>
+
+#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
-#include "lwip/sockets.h"
-
-#include "esp_event_loop.h"
-#include "esp_wifi.h"
-#include "esp_err.h"
-#include "esp_system.h"
-#include "esp_log.h"
-
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "string.h"
-#include "esp_alink.h"
-#include "alink_info_store.h"
 #include "esp_partition.h"
-#include "product.h"
+#include "esp_wifi.h"
+
+#include "alink_platform.h"
+#include "alink_product.h"
+#include "alink_export.h"
+#include "alink_json_parser.h"
+
+#include "esp_alink.h"
+#include "esp_alink_log.h"
+#include "esp_info_store.h"
+#include "esp_json_parser.h"
 
 static const char *TAG = "alink_main";
-
 /**
  * @brief  Clear wifi information, restart the device into the config network mode
  */
@@ -36,20 +51,24 @@ alink_err_t alink_update_router()
 {
     int ret = 0;
     ALINK_LOGI("clear wifi config");
-    ret = alink_info_erase(NVS_KEY_WIFI_CONFIG);
-    ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "alink_erase");
+    ret = esp_info_erase(NVS_KEY_WIFI_CONFIG);
+
+    if (ret != ALINK_OK) {
+        ALINK_LOGD("esp_info_erase, ret: %d", ret);
+    }
+
     ALINK_LOGI("The system is about to be restarted");
     esp_restart();
     return ALINK_OK;
 }
-
 
 static alink_err_t alink_connect_ap()
 {
     alink_err_t ret = ALINK_ERR;
     wifi_config_t wifi_config;
 
-    ret = alink_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
+    ret = esp_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
+
     if (ret > 0) {
         if (platform_awss_connect_ap(WIFI_WAIT_TIME, (char *)wifi_config.sta.ssid, (char *)wifi_config.sta.password,
                                      0, 0, wifi_config.sta.bssid, 0) == ALINK_OK) {
@@ -63,10 +82,12 @@ static alink_err_t alink_connect_ap()
     ALINK_LOGI("*    ENTER SAMARTCONFIG MODE    *");
     ALINK_LOGI("*********************************");
     ret = awss_start();
+
     if (ret != ALINK_OK) {
         ALINK_LOGI("awss_start is err ret: %d", ret);
         esp_restart();
     }
+
     return ALINK_OK;
 }
 
@@ -81,7 +102,7 @@ alink_err_t alink_factory_setting()
     ALINK_LOGI("*********************************");
     ALINK_LOGI("clear wifi config");
     alink_err_t err;
-    err = alink_info_erase(ALINK_SPACE_NAME);
+    err = esp_info_erase(ALINK_SPACE_NAME);
     ALINK_ERROR_CHECK(err != 0, ALINK_ERR, "alink_erase_wifi_config");
 
     esp_partition_t find_partition;
@@ -99,6 +120,7 @@ alink_err_t alink_factory_setting()
         ALINK_LOGE("esp_partition_erase_range ret:%d", err);
         vTaskDelete(NULL);
     }
+
     ALINK_LOGI("reset user account binding");
     alink_factory_reset();
 
@@ -117,12 +139,15 @@ alink_err_t alink_get_time(unsigned int *utc_time)
     int ret;
 
     ret = alink_query("getAlinkTime", "{}", buf, &size);
+
     if (!ret) {
         attr_str = json_get_value_by_name(buf, size, "time", &attr_len, NULL);
+
         if (attr_str && utc_time) {
             sscanf(attr_str, "%u", utc_time);
         }
     }
+
     return ret;
 }
 
@@ -135,19 +160,25 @@ static void alink_event_loop_task(void *pvParameters)
 {
     alink_err_t ret = ALINK_OK;
     alink_event_cb_t s_event_handler_cb = (alink_event_cb_t)pvParameters;
+
     for (;;) {
         alink_event_t event;
+
         if (xQueueReceive(xQueueEvent, &event, portMAX_DELAY) != pdPASS) {
             continue;
         }
+
         if (!s_event_handler_cb) {
             continue;
         }
+
         ret = (*s_event_handler_cb)(event);;
+
         if (ret != ALINK_OK) {
             ALINK_LOGW("Event handling failed");
         }
     }
+
     vTaskDelete(NULL);
 }
 
@@ -156,6 +187,7 @@ alink_err_t alink_event_send(alink_event_t event)
     if (!xQueueEvent) {
         xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
     }
+
     alink_err_t ret = xQueueSend(xQueueEvent, &event, 0);
     ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "xQueueSendToBack fail!")
     return ALINK_OK;
@@ -173,10 +205,12 @@ alink_err_t alink_init(_IN_ const void *product_info,
     ALINK_PARAM_CHECK(!event_handler_cb);
 
     alink_err_t ret = ALINK_OK;
+
     if (!xQueueEvent) {
         xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
     }
-    xTaskCreate(alink_event_loop_task, "alink_event_loop_task", EVENT_HANDLER_CB_STACK,
+
+    xTaskCreate(alink_event_loop_task, "alink_event_loop_task", ALINK_EVENT_STACK_SIZE,
                 event_handler_cb, DEFAULU_TASK_PRIOTY, NULL);
 
     ret = product_set(product_info);
@@ -186,14 +220,16 @@ alink_err_t alink_init(_IN_ const void *product_info,
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_connect_ap :%d", ret);
 
     ret = alink_trans_init();
+
     if (ret != ALINK_OK) {
         alink_trans_destroy();
     }
+
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_trans_init :%d", ret);
 
-    unsigned int alink_server_time = 0;
-    ret = alink_get_time(&alink_server_time);
-    ALINK_LOGD("ret: %d,get alink utc time: %d\n", ret, alink_server_time);
+    // unsigned int alink_server_time = 0;
+    // ret = alink_get_time(&alink_server_time);
+    // ALINK_LOGD("ret: %d,get alink utc time: %d\n", ret, alink_server_time);
 
     return ALINK_OK;
 }
