@@ -210,7 +210,7 @@ alink_err_t alink_init(_IN_ const void *product_info,
         xQueueEvent = xQueueCreate(EVENT_QUEUE_NUM, sizeof(alink_event_t));
     }
 
-    xTaskCreate(alink_event_loop_task, "alink_event_loop_task", EVENT_HANDLER_CB_STACK,
+    xTaskCreate(alink_event_loop_task, "alink_event_loop_task", ALINK_EVENT_STACK_SIZE,
                 event_handler_cb, DEFAULU_TASK_PRIOTY, NULL);
 
     ret = product_set(product_info);

@@ -67,34 +67,53 @@ typedef int32_t alink_err_t;
 
 /*!< description */
 #ifndef CONFIG_WIFI_WAIT_TIME
-#define CONFIG_WIFI_WAIT_TIME     60
+#define CONFIG_WIFI_WAIT_TIME         60
 #endif
-#ifndef CONFIG_ALINK_RESET_KEY_IO
-#define CONFIG_ALINK_RESET_KEY_IO 0
+
+#ifndef CONFIG_ALINK_DATA_LEN
+#define CONFIG_ALINK_DATA_LEN         1024
 #endif
 
 #ifndef CONFIG_ALINK_TASK_PRIOTY
-#define CONFIG_ALINK_TASK_PRIOTY  6
+#define CONFIG_ALINK_TASK_PRIOTY      6
 #endif
 
-#define WIFI_WAIT_TIME            (CONFIG_WIFI_WAIT_TIME * 1000)
-#define ALINK_RESET_KEY_IO        CONFIG_ALINK_RESET_KEY_IO
-#define DEFAULU_TASK_PRIOTY       CONFIG_ALINK_TASK_PRIOTY
+#ifndef CONFIG_DOWN_CMD_QUEUE_NUM
+#define CONFIG_DOWN_CMD_QUEUE_NUM     3
+#endif
 
+#ifndef CONFIG_UP_CMD_QUEUE_NUM
+#define CONFIG_UP_CMD_QUEUE_NUM       3
+#endif
+
+#ifndef CONFIG_EVENT_STACK_SIZE
+#define CONFIG_EVENT_STACK_SIZE 4096
+#endif
+
+#ifndef CONFIG_ALINK_POST_DATA_STACK_SIZE
+#define CONFIG_ALINK_POST_DATA_STACK_SIZE  4096
+#endif
+
+#define WIFI_WAIT_TIME                (CONFIG_WIFI_WAIT_TIME * 1000)
+#define ALINK_DATA_LEN                CONFIG_ALINK_DATA_LEN
+#define DEFAULU_TASK_PRIOTY           CONFIG_ALINK_TASK_PRIOTY
+#define ALINK_EVENT_STACK_SIZE        CONFIG_ALINK_EVENT_STACK_SIZE
+#define ALINK_POST_DATA_STACK_SIZE    CONFIG_ALINK_POST_DATA_STACK_SIZE
+
+#define DOWN_CMD_QUEUE_NUM            CONFIG_DOWN_CMD_QUEUE_NUM
+#define UP_CMD_QUEUE_NUM              CONFIG_UP_CMD_QUEUE_NUM
 
 #ifdef CONFIG_ALINK_PASSTHROUGH
 #define ALINK_PASSTHROUGH
 #endif
 
-#define ALINK_DATA_LEN            512
-
-#define EVENT_HANDLER_CB_STACK    (4 * 1024)
 typedef enum {
     ALINK_EVENT_CLOUD_CONNECTED = 0,/*!< ESP32 connected from alink cloude */
     ALINK_EVENT_CLOUD_DISCONNECTED, /*!< ESP32 disconnected from alink cloude */
     ALINK_EVENT_GET_DEVICE_DATA,    /*!< Alink cloud requests data from the device */
     ALINK_EVENT_SET_DEVICE_DATA,    /*!< Alink cloud to send data to the device */
     ALINK_EVENT_POST_CLOUD_DATA,    /*!< The device sends data to alink cloud  */
+    ALINK_EVENT_POST_CLOUD_DATA_FAIL, /*!< The device sends data to alink cloud fialed  */
     ALINK_EVENT_STA_GOT_IP,         /*!< ESP32 station got IP from connected AP */
     ALINK_EVENT_STA_DISCONNECTED,   /*!< ESP32 station disconnected from AP */
     ALINK_EVENT_CONFIG_NETWORK,     /*!< The equipment enters the distribution mode */

@@ -52,9 +52,6 @@
 #define ALINK_SET_DEVICE_DATA ALINK_SET_DEVICE_STATUS
 #endif /*!< ALINK_PASSTHROUGH */
 
-#define DOWN_CMD_QUEUE_NUM  3
-#define UP_CMD_QUEUE_NUM    3
-
 static const char *TAG = "esp_alink_trans";
 static alink_err_t post_data_enable     = ALINK_TRUE;
 static xQueueHandle xQueueDownCmd       = NULL;
@@ -137,7 +134,8 @@ static void alink_post_data(void *arg)
 
         if (ret != ALINK_OK) {
             ALINK_LOGW("post failed!");
-            platform_msleep(1000);
+            alink_event_send(ALINK_EVENT_POST_CLOUD_DATA_FAIL);
+            platform_msleep(3000);
         } else {
             alink_event_send(ALINK_EVENT_POST_CLOUD_DATA);
         }
@@ -160,13 +158,11 @@ static void cloud_disconnected(void)
 
 alink_err_t alink_trans_init()
 {
-    alink_err_t ret = ALINK_OK;
+    alink_err_t ret  = ALINK_OK;
     post_data_enable = ALINK_TRUE;
     xQueueUpCmd      = xQueueCreate(DOWN_CMD_QUEUE_NUM, sizeof(char *));
     xQueueDownCmd    = xQueueCreate(UP_CMD_QUEUE_NUM, sizeof(char *));
-    alink_set_loglevel(ALINK_LL_TRACE);
-    // alink_set_loglevel(ALINK_LL_DEBUG);
-    // alink_set_loglevel(ALINK_LL_INFO);
+    alink_set_loglevel(ALINK_SDK_LOG_LEVEL);
 
     alink_register_callback(ALINK_CLOUD_CONNECTED, &cloud_connected);
     alink_register_callback(ALINK_CLOUD_DISCONNECTED, &cloud_disconnected);
@@ -178,10 +174,10 @@ alink_err_t alink_trans_init()
     ALINK_LOGI("wait main device login");
     /*wait main device login, -1 means wait forever */
     ret = alink_wait_connect(ALINK_WAIT_FOREVER);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_start :%d", ret);
-
-    xTaskCreate(alink_post_data, "alink_post_data", 1024 * 4, NULL, DEFAULU_TASK_PRIOTY, NULL);
-    return ret;
+    ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_start : %d", ret);
+    ret = xTaskCreate(alink_post_data, "alink_post_data", ALINK_POST_DATA_STACK_SIZE, NULL, DEFAULU_TASK_PRIOTY, NULL);
+    ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "thread_create name: %s, stack_size: %d, ret: %d", "alink_post_data", 2048, ret);
+    return ALINK_OK;
 }
 
 void alink_trans_destroy()
