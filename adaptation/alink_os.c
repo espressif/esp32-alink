@@ -162,13 +162,13 @@ int platform_thread_get_stack_size(_IN_ const char *thread_name)
 
     if (0 == strcmp(thread_name, "work queue")) {
         ALINK_LOGD("get work queue");
-        return 0x800;
+        return 0xa00;
     }  else if (0 == strcmp(thread_name, "wsf_receive_worker")) {
         ALINK_LOGD("get wsf_receive_worker");
-        return 0x800;
+        return 0xa00;
     }  else if (0 == strcmp(thread_name, "alcs_thread")) {
         ALINK_LOGD("get alcs_thread");
-        return 0x800;
+        return 0xa00;
     } else {
         ALINK_LOGE("get othrer thread: %s", thread_name);
         return 0x800;
@@ -296,5 +296,6 @@ char *platform_get_module_name(_OUT_ char name_str[STR_SHORT_LEN])
 
 void platform_sys_reboot(void)
 {
+    ALINK_LOGI("platform_sys_reboot");
     esp_restart();
 }
