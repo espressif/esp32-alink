@@ -43,6 +43,7 @@ static alink_err_t network_create_socket(pplatform_netaddr_t netaddr, int type, 
     ALINK_PARAM_CHECK(psock == NULL);
 
     struct hostent *hp;
+    struct in_addr in;
     uint32_t ip;
     alink_err_t ret;
 
@@ -50,20 +51,20 @@ static alink_err_t network_create_socket(pplatform_netaddr_t netaddr, int type, 
         ip = htonl(INADDR_ANY);
     } else {
         ALINK_LOGI("alink server host: %s", netaddr->host);
-        hp = gethostbyname(netaddr->host);
-        ALINK_ERROR_CHECK(hp == NULL, ALINK_ERR, "gethostbyname ret:%p", hp);
 
-        struct ip4_addr *ip4_addr = (struct ip4_addr *)hp->h_addr;
-        char ipaddr_tmp[64] = {0};
-        sprintf(ipaddr_tmp, IPSTR, IP2STR(ip4_addr));
-        ALINK_LOGI("ip: %s", ipaddr_tmp);
-        ip = inet_addr(ipaddr_tmp);
+        if (inet_aton(netaddr->host, &in)) {
+            ip = *(uint32_t *)&in;
+        } else {
+            hp = gethostbyname(netaddr->host);
+            ALINK_ERROR_CHECK(hp == NULL, ALINK_ERR, "gethostbyname ret:%p", hp);
+            ip = *(uint32_t *)(hp->h_addr);
+        }
     }
 
     *psock = socket(AF_INET, type, 0);
 
     if (*psock < 0) {
-        return -1;
+        return ALINK_ERR;
     }
 
     memset(paddr, 0, sizeof(struct sockaddr_in));
@@ -76,7 +77,7 @@ static alink_err_t network_create_socket(pplatform_netaddr_t netaddr, int type, 
         ret = setsockopt(*psock, SOL_SOCKET, SO_BROADCAST, &opt_val, sizeof(opt_val));
 
         if (ret != 0) {
-            close((int)*psock);
+            close(*psock);
         }
 
         ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_BROADCAST errno: %d", errno);
@@ -88,19 +89,21 @@ static alink_err_t network_create_socket(pplatform_netaddr_t netaddr, int type, 
 
     ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_RCVTIMEO errno: %d", errno);
 
-    ALINK_LOGD("setsockopt: recv timeout %dms", ALINK_SOCKET_TIMEOUT);
+    ALINK_LOGD("setsockopt: recv timeout %ds", ALINK_SOCKET_TIMEOUT);
 
     ret = setsockopt((int) * psock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval));
 
     ALINK_ERROR_CHECK(ret != 0, ALINK_ERR, "setsockopt SO_SNDTIMEO errno: %d", errno);
 
-    ALINK_LOGD("setsockopt: send timeout %dms", ALINK_SOCKET_TIMEOUT);
+    ALINK_LOGD("setsockopt: send timeout %ds", ALINK_SOCKET_TIMEOUT);
 
     paddr->sin_addr.s_addr = ip;
 
     paddr->sin_family = AF_INET;
 
     paddr->sin_port = htons(netaddr->port);
+
+    ALINK_LOGV("create sock: %d", *psock);
 
     return ALINK_OK;
 }
@@ -113,15 +116,12 @@ void *platform_udp_server_create(_IN_ uint16_t port)
     platform_netaddr_t netaddr = {NULL, port};
 
     ret = network_create_socket(&netaddr, SOCK_DGRAM, &addr, &server_socket);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "network_create_socket");
-
-    ret = bind(server_socket, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
+    ALINK_ERROR_CHECK(ret != ALINK_OK, PLATFORM_INVALID_FD, "network_create_socket");
 
     if (-1 == bind(server_socket, (struct sockaddr *)&addr, sizeof(struct sockaddr_in))) {
-        platform_udp_close((void *)server_socket);
-        ALINK_LOGE("socket bind");
         perror("socket bind");
-        return NULL;
+        platform_udp_close((void *)server_socket);
+        return PLATFORM_INVALID_FD;
     }
 
     return (void *)server_socket;
@@ -135,7 +135,7 @@ void *platform_udp_client_create(void)
     alink_err_t ret;
 
     ret = network_create_socket(&netaddr, SOCK_DGRAM, &addr, &sock);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "network_create_socket");
+    ALINK_ERROR_CHECK(ret != ALINK_OK, PLATFORM_INVALID_FD, "network_create_socket");
 
     return (void *)sock;
 }
@@ -143,6 +143,7 @@ void *platform_udp_client_create(void)
 void *platform_udp_multicast_server_create(pplatform_netaddr_t netaddr)
 {
     ALINK_PARAM_CHECK(netaddr == NULL);
+    int option = 1;
     struct sockaddr_in addr;
     int sock;
     struct ip_mreq mreq;
@@ -154,13 +155,19 @@ void *platform_udp_multicast_server_create(pplatform_netaddr_t netaddr)
     memset(&mreq, 0, sizeof(mreq));
 
     ret = network_create_socket(&netaddr_client, SOCK_DGRAM, &addr, &sock);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "network_create_socket");
+    ALINK_ERROR_CHECK(ret != ALINK_OK, PLATFORM_INVALID_FD, "network_create_socket");
+
+    /* allow multiple sockets to use the same PORT number */
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&option, sizeof(option)) < 0) {
+        ALINK_LOGE("setsockopt");
+        platform_udp_close((void *)sock);
+        return PLATFORM_INVALID_FD;
+    }
 
     if (-1 == bind(sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_in))) {
-        ALINK_LOGE("socket bind, errno: %d", errno);
-        perror("socket bind");
+        ALINK_LOGE("socket bind");
         platform_udp_close((void *)sock);
-        return NULL;
+        return PLATFORM_INVALID_FD;
     }
 
     mreq.imr_multiaddr.s_addr = inet_addr(netaddr->host);
@@ -169,7 +176,7 @@ void *platform_udp_multicast_server_create(pplatform_netaddr_t netaddr)
     if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &mreq, sizeof(mreq)) < 0) {
         ALINK_LOGE("setsockopt IP_ADD_MEMBERSHIP");
         platform_udp_close((void *)sock);
-        return NULL;
+        return PLATFORM_INVALID_FD;
     }
 
     return (void *)sock;
@@ -177,6 +184,7 @@ void *platform_udp_multicast_server_create(pplatform_netaddr_t netaddr)
 
 void platform_udp_close(void *handle)
 {
+    ALINK_ERROR_CHECK((int)handle < 0, ; , "Parameter error: handle: %d", (int)handle);
     close((int)handle);
 }
 
@@ -190,27 +198,33 @@ int platform_udp_sendto(
     ALINK_PARAM_CHECK((int)handle < 0);
     ALINK_PARAM_CHECK(buffer == NULL);
     ALINK_PARAM_CHECK(netaddr == NULL);
-    int ret_code;
+
+    int ret;
+    uint32_t ip;
+    struct in_addr in;
     struct hostent *hp;
     struct sockaddr_in addr;
 
-    hp = gethostbyname(netaddr->host);
-    ALINK_ERROR_CHECK(hp == NULL, ALINK_ERR, "gethostbyname Can't resolute the host address hp:%p", hp);
+    if (inet_aton(netaddr->host, &in)) {
+        ip = *(uint32_t *)&in;
+    } else {
+        hp = gethostbyname(netaddr->host);
+        ALINK_ERROR_CHECK(!hp, ALINK_ERR, "gethostbyname Can't resolute the host address hp:%p", hp);
+        ip = *(uint32_t *)(hp->h_addr);
+    }
 
-
-    addr.sin_addr.s_addr = *((u_int *)(hp->h_addr));
-    //addr.sin_addr.S_un.S_addr = *((u_int *)(hp->h_addr));
+    addr.sin_addr.s_addr = ip;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(netaddr->port);
 
-    ret_code = sendto((int)handle,
-                      buffer,
-                      length,
-                      0,
-                      (struct sockaddr *)&addr,
-                      sizeof(struct sockaddr_in));
-    ALINK_ERROR_CHECK(ret_code <= 0, ALINK_ERR, "sendto ret:%d, errno:%d", ret_code, errno);
-    return ret_code;
+    ret = sendto((int)handle,
+                 buffer,
+                 length,
+                 0,
+                 (struct sockaddr *)&addr,
+                 sizeof(struct sockaddr_in));
+    ALINK_ERROR_CHECK(ret <= 0, ALINK_ERR, "sendto ret:%d, errno:%d", ret, errno);
+    return ret;
 }
 
 
@@ -222,12 +236,12 @@ int platform_udp_recvfrom(
 {
     ALINK_PARAM_CHECK((int)handle < 0);
     ALINK_PARAM_CHECK(buffer == NULL);
-    int ret_code;
+    int ret;
     struct sockaddr_in addr;
     unsigned int addr_len = sizeof(addr);
 
-    ret_code = recvfrom((int)handle, buffer, length, 0, (struct sockaddr *)&addr, &addr_len);
-    ALINK_ERROR_CHECK(ret_code <= 0, ALINK_ERR, "recvfrom ret:%d, errno:%d", ret_code, errno);
+    ret = recvfrom((int)handle, buffer, length, 0, (struct sockaddr *)&addr, &addr_len);
+    ALINK_ERROR_CHECK(ret <= 0, ALINK_ERR, "recvfrom ret:%d, errno:%d", ret, errno);
 
     if (NULL != netaddr) {
         netaddr->port = ntohs(addr.sin_port);
@@ -237,7 +251,7 @@ int platform_udp_recvfrom(
         }
     }
 
-    return ret_code;
+    return ret;
 }
 
 
@@ -249,18 +263,18 @@ void *platform_tcp_server_create(_IN_ uint16_t port)
     platform_netaddr_t netaddr = {NULL, port};
 
     ret = network_create_socket(&netaddr, SOCK_STREAM, &addr, &server_socket);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "network_create_socket");
+    ALINK_ERROR_CHECK(ret != ALINK_OK, PLATFORM_INVALID_FD, "network_create_socket");
 
     if (-1 == bind(server_socket, (struct sockaddr *)&addr, sizeof(addr))) {
         ALINK_LOGE("bind");
         platform_tcp_close((void *)server_socket);
-        return NULL;
+        return PLATFORM_INVALID_FD;
     }
 
     if (0 != listen(server_socket, SOMAXCONN)) {
         ALINK_LOGE("listen");
         platform_tcp_close((void *)server_socket);
-        return NULL;
+        return PLATFORM_INVALID_FD;
     }
 
     return (void *)server_socket;
@@ -275,7 +289,7 @@ void *platform_tcp_server_accept(_IN_ void *server)
     int new_client;
 
     new_client = accept((int)server, (struct sockaddr *)&addr, &addr_length);
-    ALINK_ERROR_CHECK(new_client <= 0, NULL, "accept errno:%d", errno);
+    ALINK_ERROR_CHECK(new_client <= 0, PLATFORM_INVALID_FD, "accept errno:%d", errno);
 
     return (void *)new_client;
 }
@@ -289,13 +303,13 @@ void *platform_tcp_client_connect(_IN_ pplatform_netaddr_t netaddr)
     alink_err_t ret = 0;
 
     ret = network_create_socket(netaddr, SOCK_STREAM, &addr, &sock);
-    ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "network_create_socket");
+    ALINK_ERROR_CHECK(ret != ALINK_OK, PLATFORM_INVALID_FD, "network_create_socket");
 
     if (-1 == connect(sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_in))) {
         ALINK_LOGE("connect errno: %d", errno);
         perror("connect");
         platform_tcp_close((void *)sock);
-        return NULL;
+        return PLATFORM_INVALID_FD;
     }
 
     return (void *)sock;
@@ -304,7 +318,8 @@ void *platform_tcp_client_connect(_IN_ pplatform_netaddr_t netaddr)
 
 int platform_tcp_send(_IN_ void *handle, _IN_ const char *buffer, _IN_ uint32_t length)
 {
-    ALINK_PARAM_CHECK((int)handle < 0);
+    ALINK_ERROR_CHECK((int)handle < 0, ALINK_ERR, "Parameter error: handle: %d", (int)handle);
+    // ALINK_PARAM_CHECK((int)handle < 0);
     ALINK_PARAM_CHECK(buffer == NULL);
     int bytes_sent;
 
@@ -328,7 +343,9 @@ int platform_tcp_recv(_IN_ void *handle, _OUT_ char *buffer, _IN_ uint32_t lengt
 
 void platform_tcp_close(_IN_ void *handle)
 {
-    close((int)handle);
+    if ((int)handle >= 0) {
+        close((int)handle);
+    }
 }
 
 int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
@@ -377,23 +394,6 @@ int platform_select(void *read_fds[PLATFORM_SOCKET_MAXNUMS],
     }
 
     ret = select(max_fd + 1, &r_set, &w_set, NULL, ptimeval);
-
-    if (ret < 0 && read_fds) {
-        printf("\nread_fds:");
-
-        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
-            printf("%d ", (int)read_fds[i]);
-        }
-    }
-
-    if (ret < 0 && write_fds) {
-        printf("\nwrite_fds:");
-
-        for (i = 0; i < PLATFORM_SOCKET_MAXNUMS; ++i) {
-            printf("%d ", (int)write_fds[i]);
-        }
-	printf("\n");
-    }
 
     if (ret > 0) {
         if (read_fds) {
