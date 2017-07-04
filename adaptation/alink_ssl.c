@@ -64,8 +64,9 @@ void *platform_ssl_connect(_IN_ void *tcp_fd, _IN_ const char *server_cert, _IN_
         goto err_exit;
     }
 
-    ALINK_LOGD("set SSL context read buffer size");
-    SSL_CTX_set_default_read_buffer_len(ctx, 2048);
+    // ALINK_LOGD("set SSL context read buffer size");
+    // SSL_CTX_set_default_read_buffer_len(ctx, 2048);
+    ALINK_LOGD("set SSL new");
     ssl = SSL_new(ctx);
 
     if (!ssl) {
@@ -73,6 +74,7 @@ void *platform_ssl_connect(_IN_ void *tcp_fd, _IN_ const char *server_cert, _IN_
         goto err_exit;
     }
 
+    ALINK_LOGV("set SSL_set_fd");
     SSL_set_fd(ssl, socket);
     X509 *ca_cert = d2i_X509(NULL, (unsigned char *)server_cert, server_cert_len);
 
@@ -81,6 +83,7 @@ void *platform_ssl_connect(_IN_ void *tcp_fd, _IN_ const char *server_cert, _IN_
         goto err_exit;
     }
 
+    ALINK_LOGV("set SSL_connect");
     ret = SSL_add_client_CA(ssl, ca_cert);
 
     if (ret != pdTRUE) {
@@ -97,6 +100,7 @@ void *platform_ssl_connect(_IN_ void *tcp_fd, _IN_ const char *server_cert, _IN_
         goto err_exit;
     }
 
+    ALINK_LOGD("set SSL_connect is successed");
     platform_mutex_unlock(alink_ssl_mutex);
     return ssl;
 
