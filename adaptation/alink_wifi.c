@@ -70,7 +70,7 @@ int platform_awss_get_connect_default_ssid_timeout_interval_ms(void)
  */
 int platform_awss_get_channelscan_interval_ms(void)
 {
-    return 300;
+    return 200;
 }
 
 /**
@@ -86,14 +86,12 @@ void platform_awss_switch_channel(char primary_channel,
                                   char secondary_channel, uint8_t bssid[ETH_ALEN])
 {
     ESP_ERROR_CHECK(esp_wifi_set_channel(primary_channel, secondary_channel));
-    //ret = system(buf);
 }
 
 static void IRAM_ATTR  wifi_sniffer_cb_(void *recv_buf, wifi_promiscuous_pkt_type_t type)
 {
     char *buf = NULL;
     uint16_t len = 0;
-    // if (type == WIFI_PKT_CTRL) return;
     wifi_promiscuous_pkt_t *sniffer = (wifi_promiscuous_pkt_t *)recv_buf;
     buf = (char *)sniffer->payload;
     len = sniffer->rx_ctrl.sig_len;
@@ -114,6 +112,7 @@ void platform_awss_open_monitor(_IN_ platform_awss_recv_80211_frame_cb_t cb)
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(wifi_sniffer_cb_));
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous(1));
     ESP_ERROR_CHECK(esp_wifi_set_channel(6, 0));
+    ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 /**
@@ -157,7 +156,6 @@ int platform_sys_net_is_ready(void)
     return sys_net_is_ready;
 }
 
-alink_err_t alink_event_send(alink_event_t event);
 static SemaphoreHandle_t xSemConnet = NULL;
 static alink_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -267,15 +265,23 @@ int platform_wifi_send_80211_raw_frame(_IN_ enum platform_awss_frame_type type,
     return ALINK_OK;
 }
 
+
 platform_wifi_mgnt_frame_cb_t g_callback = NULL;
 static uint8_t g_vendor_oui[3];
 static void ssc_vnd_filter_cb(void *ctx, wifi_vendor_ie_type_t type,
-                              const uint8_t sa[6], const uint8_t *vnd_ie, int rssi)
+                              const uint8_t sa[6], const vendor_ie_data_t *vnd_ie, int rssi)
 {
     ALINK_PARAM_CHECK(!vnd_ie);
+    ALINK_ERROR_CHECK(type != WIFI_VND_IE_TYPE_BEACON && type != WIFI_VND_IE_TYPE_PROBE_REQ,
+                      ; , "not support type: %d", type);
 
-    if (vnd_ie[2] == g_vendor_oui[0] && vnd_ie[3] == g_vendor_oui[1] && vnd_ie[4] == g_vendor_oui[2]) {
-        g_callback((uint8_t *)vnd_ie, (vnd_ie[1] + 2), rssi, 1);
+    if (vnd_ie->vendor_oui_type == 171) {
+        ALINK_LOGV("frame is no support, vnd_ie->type: %d", vnd_ie->vendor_oui_type);
+        return;
+    }
+
+    if (memcmp(vnd_ie->vendor_oui, g_vendor_oui, sizeof(g_vendor_oui)) == 0) {
+        g_callback((uint8_t *)(vnd_ie), vnd_ie->length + 2, rssi, 1);
     }
 }
 
