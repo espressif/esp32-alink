@@ -34,9 +34,6 @@
 #include "esp_alink_log.h"
 #include "esp_info_store.h"
 
-#define ALINK_CHIPID              "esp32"
-#define MODULE_NAME               "ESP-WROOM-32"
-
 static const char *TAG = "alink_os";
 
 typedef struct task_name_handler_content {
@@ -290,7 +287,7 @@ char *platform_get_os_version(_OUT_ char version_str[STR_SHORT_LEN])
 char *platform_get_module_name(_OUT_ char name_str[STR_SHORT_LEN])
 {
     ALINK_PARAM_CHECK(name_str == NULL);
-    memcpy(name_str, MODULE_NAME, STR_SHORT_LEN);
+    memcpy(name_str, ALINK_MODULE_NAME, STR_SHORT_LEN);
     return name_str;
 }
 

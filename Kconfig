@@ -60,6 +60,22 @@ config ALINK_DATA_LEN
     help
         The maximum length of this data is 1536B
 
+config ALINK_CHIPID
+    string "The name of the chip"
+    default "esp32"
+    depends on ALINK_EMBED_ENABLE
+    help
+        Before modifying this parameter, make sure that the device is
+        unbinded with Ali cloud server
+
+config ALINK_MODULE_NAME
+    string "The name of the module"
+    default "ESP-WROOM-32"
+    depends on ALINK_EMBED_ENABLE
+    help
+        Before modifying this parameter, make sure that the device is
+        unbinded with Ali cloud server
+
 choice LOG_ALINK_LEVEL
     bool "Configure the alink application layer's log"
     default LOG_ALINK_LEVEL_DEBUG
