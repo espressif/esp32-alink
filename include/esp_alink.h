@@ -65,45 +65,55 @@ typedef int32_t alink_err_t;
 #define _INOUT_OPT_     /*!< indicate that this is a optional io parameter. */
 #endif
 
-/*!< description */
 #ifndef CONFIG_WIFI_WAIT_TIME
-#define CONFIG_WIFI_WAIT_TIME         60
+#define CONFIG_WIFI_WAIT_TIME             60
 #endif
 
 #ifndef CONFIG_ALINK_DATA_LEN
-#define CONFIG_ALINK_DATA_LEN         1024
+#define CONFIG_ALINK_DATA_LEN             1024
 #endif
 
 #ifndef CONFIG_ALINK_TASK_PRIOTY
-#define CONFIG_ALINK_TASK_PRIOTY      6
+#define CONFIG_ALINK_TASK_PRIOTY          6
 #endif
 
 #ifndef CONFIG_DOWN_CMD_QUEUE_NUM
-#define CONFIG_DOWN_CMD_QUEUE_NUM     3
+#define CONFIG_DOWN_CMD_QUEUE_NUM         3
 #endif
 
 #ifndef CONFIG_UP_CMD_QUEUE_NUM
-#define CONFIG_UP_CMD_QUEUE_NUM       3
+#define CONFIG_UP_CMD_QUEUE_NUM           3
 #endif
 
 #ifndef CONFIG_EVENT_STACK_SIZE
-#define CONFIG_EVENT_STACK_SIZE 4096
+#define CONFIG_EVENT_STACK_SIZE           4096
 #endif
 
 #ifndef CONFIG_ALINK_POST_DATA_STACK_SIZE
-#define CONFIG_ALINK_POST_DATA_STACK_SIZE  4096
+#define CONFIG_ALINK_POST_DATA_STACK_SIZE 4096
 #endif
 
-#define WIFI_WAIT_TIME                (CONFIG_WIFI_WAIT_TIME * 1000)
-#define ALINK_DATA_LEN                CONFIG_ALINK_DATA_LEN
-#define DEFAULU_TASK_PRIOTY           CONFIG_ALINK_TASK_PRIOTY
-#define ALINK_EVENT_STACK_SIZE        CONFIG_ALINK_EVENT_STACK_SIZE
-#define ALINK_POST_DATA_STACK_SIZE    CONFIG_ALINK_POST_DATA_STACK_SIZE
+#ifndef CONFIG_ALINK_CHIPID
+#define CONFIG_ALINK_CHIPID               "esp32"
+#endif
 
-#define DOWN_CMD_QUEUE_NUM            CONFIG_DOWN_CMD_QUEUE_NUM
-#define UP_CMD_QUEUE_NUM              CONFIG_UP_CMD_QUEUE_NUM
+#ifndef CONFIG_ALINK_MODULE_NAME
+#define CONFIG_ALINK_MODULE_NAME          "ESP-WROOM-32"
+#endif
 
-#ifdef CONFIG_ALINK_PASSTHROUGH
+#define ALINK_CHIPID                      CONFIG_ALINK_CHIPID
+#define ALINK_MODULE_NAME                 CONFIG_ALINK_MODULE_NAME
+
+#define WIFI_WAIT_TIME                    (CONFIG_WIFI_WAIT_TIME * 1000)
+#define ALINK_DATA_LEN                    CONFIG_ALINK_DATA_LEN
+#define DEFAULU_TASK_PRIOTY               CONFIG_ALINK_TASK_PRIOTY
+#define ALINK_EVENT_STACK_SIZE            CONFIG_ALINK_EVENT_STACK_SIZE
+#define ALINK_POST_DATA_STACK_SIZE        CONFIG_ALINK_POST_DATA_STACK_SIZE
+
+#define DOWN_CMD_QUEUE_NUM                CONFIG_DOWN_CMD_QUEUE_NUM
+#define UP_CMD_QUEUE_NUM                  CONFIG_UP_CMD_QUEUE_NUM
+
+#ifdef  CONFIG_ALINK_PASSTHROUGH
 #define ALINK_PASSTHROUGH
 #endif
 

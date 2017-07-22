@@ -272,8 +272,11 @@ static void ssc_vnd_filter_cb(void *ctx, wifi_vendor_ie_type_t type,
                               const uint8_t sa[6], const vendor_ie_data_t *vnd_ie, int rssi)
 {
     ALINK_PARAM_CHECK(!vnd_ie);
-    ALINK_ERROR_CHECK(type != WIFI_VND_IE_TYPE_BEACON && type != WIFI_VND_IE_TYPE_PROBE_REQ,
-                      ; , "not support type: %d", type);
+
+    if(type != WIFI_VND_IE_TYPE_BEACON && type != WIFI_VND_IE_TYPE_PROBE_REQ){
+        ALINK_LOGV("not support type: %d", type);
+        return;
+    }
 
     if (vnd_ie->vendor_oui_type == 171) {
         ALINK_LOGV("frame is no support, vnd_ie->type: %d", vnd_ie->vendor_oui_type);
