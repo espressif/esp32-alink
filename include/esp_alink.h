@@ -113,8 +113,8 @@ typedef int32_t alink_err_t;
 #define DOWN_CMD_QUEUE_NUM                CONFIG_DOWN_CMD_QUEUE_NUM
 #define UP_CMD_QUEUE_NUM                  CONFIG_UP_CMD_QUEUE_NUM
 
-#ifdef  CONFIG_ALINK_PASSTHROUGH
-#define ALINK_PASSTHROUGH
+#ifdef  CONFIG_ALINK_WRITE_NOT_BUFFER
+#define ALINK_WRITE_NOT_BUFFER
 #endif
 
 typedef enum {
