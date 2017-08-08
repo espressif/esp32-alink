@@ -4,12 +4,12 @@ menuconfig ALINK_EMBED_ENABLE
     help
        If the option is enabled, "ALINK_EMBED" works.
 
-config ALINK_PASSTHROUGH
-    bool "Switch the data transmission mode to passthrough"
+config ALINK_WRITE_NOT_BUFFER
+    bool "Remove the buffer space for reporting data"
     default 0
     depends on ALINK_EMBED_ENABLE
     help
-        Switch the data transmission mode to passthrough.
+        Remove the buffer space for reporting data.
 
 config WIFI_WAIT_TIME
     int "the connection router maximum latency unit is seconds"
