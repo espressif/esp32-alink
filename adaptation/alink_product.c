@@ -24,6 +24,8 @@
 
 #include <string.h>
 
+#include "esp_wifi.h"
+
 #include "alink_product.h"
 #include "esp_alink_log.h"
 
@@ -79,7 +81,16 @@ char *product_get_debug_secret(char secret_str[PRODUCT_SECRET_LEN])
     return strncpy(secret_str, g_device_info.secret_sandbox, PRODUCT_SECRET_LEN);
 }
 
-#include "esp_wifi.h"
+char *product_get_device_key(char key_str[PRODUCT_KEY_LEN])
+{
+    return strncpy(key_str, g_device_info.key_device, PRODUCT_KEY_LEN);
+}
+
+char *product_get_device_secret(char secret_str[PRODUCT_SECRET_LEN])
+{
+    return strncpy(secret_str, g_device_info.secret_device, PRODUCT_SECRET_LEN);
+}
+
 char *product_get_sn(char sn_str[PRODUCT_SN_LEN])
 {
     uint8_t mac[6] = {0};

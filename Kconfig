@@ -49,11 +49,11 @@ config ALINK_TASK_PRIOTY
         Configure the priority of all alink tasks
 
 config ALINK_EVENT_STACK_SIZE
-    int "The maximum length of the transmitted data"
+    int "Event callback function stack space"
     default 4096
     depends on ALINK_ENABLE
     help
-        The maximum length of this data is 1536B
+        Event callback function stack space
 
 config ALINK_POST_DATA_STACK_SIZE
     int "The size of the task of reporting data to Ali"
