@@ -169,13 +169,13 @@ static alink_err_t event_handler(void *ctx, system_event_t *event)
             sys_net_is_ready = ALINK_TRUE;
             ALINK_LOGI("SYSTEM_EVENT_STA_GOT_IP");
             xSemaphoreGive(xSemConnet);
-            alink_event_send(ALINK_EVENT_STA_GOT_IP);
+            alink_event_send(ALINK_EVENT_WIFI_CONNECTED);
             break;
 
         case SYSTEM_EVENT_STA_DISCONNECTED:
             ALINK_LOGI("SYSTEM_EVENT_STA_DISCONNECTED, free_heap: %d", esp_get_free_heap_size());
             sys_net_is_ready = ALINK_FALSE;
-            alink_event_send(ALINK_EVENT_STA_DISCONNECTED);
+            alink_event_send(ALINK_EVENT_WIFI_DISCONNECTED);
             int ret = esp_wifi_connect();
 
             if (ret != ESP_OK) {

@@ -124,8 +124,8 @@ typedef enum {
     ALINK_EVENT_SET_DEVICE_DATA,    /*!< Alink cloud to send data to the device */
     ALINK_EVENT_POST_CLOUD_DATA,    /*!< The device sends data to alink cloud  */
     ALINK_EVENT_POST_CLOUD_DATA_FAIL, /*!< The device sends data to alink cloud fialed  */
-    ALINK_EVENT_STA_GOT_IP,         /*!< ESP32 station got IP from connected AP */
-    ALINK_EVENT_STA_DISCONNECTED,   /*!< ESP32 station disconnected from AP */
+    ALINK_EVENT_WIFI_CONNECTED,     /*!< ESP32 station got IP from connected AP */
+    ALINK_EVENT_WIFI_DISCONNECTED,  /*!< ESP32 station disconnected from AP */
     ALINK_EVENT_CONFIG_NETWORK,     /*!< The equipment enters the distribution mode */
     ALINK_EVENT_UPDATE_ROUTER,      /*!< Request to configure the router */
     ALINK_EVENT_FACTORY_RESET,      /*!< Request to restore factory settings */
@@ -140,6 +140,8 @@ typedef struct alink_product {
     const char *secret;
     const char *key_sandbox;
     const char *secret_sandbox;
+    const char *key_device;
+    const char *secret_device;
 } alink_product_t;
 
 /**
