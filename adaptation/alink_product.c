@@ -34,14 +34,16 @@ static alink_product_t g_device_info;
 
 alink_err_t product_get(_OUT_ void *product_info)
 {
-    ALINK_PARAM_CHECK(product_info == NULL);
+    ALINK_PARAM_CHECK(product_info);
+
     memcpy(product_info, &g_device_info, sizeof(alink_product_t));
     return ALINK_OK;
 }
 
 alink_err_t product_set(_IN_ const void *product_info)
 {
-    ALINK_PARAM_CHECK(product_info == NULL);
+    ALINK_PARAM_CHECK(product_info);
+
     memcpy(&g_device_info, product_info, sizeof(alink_product_t));
     return ALINK_OK;
 }

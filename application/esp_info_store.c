@@ -35,7 +35,7 @@ static const char *TAG = "esp_info_store";
 
 int esp_info_erase(const char *key)
 {
-    ALINK_PARAM_CHECK(!key);
+    ALINK_PARAM_CHECK(key);
 
     alink_err_t ret   = -1;
     nvs_handle handle = 0;
@@ -56,9 +56,9 @@ int esp_info_erase(const char *key)
 
 ssize_t esp_info_save(const char *key, const void *value, size_t length)
 {
-    ALINK_PARAM_CHECK(!key);
-    ALINK_PARAM_CHECK(!value);
-    ALINK_PARAM_CHECK(length <= 0);
+    ALINK_PARAM_CHECK(key);
+    ALINK_PARAM_CHECK(value);
+    ALINK_PARAM_CHECK(length > 0);
 
     alink_err_t ret   = -1;
     nvs_handle handle = 0;
@@ -69,15 +69,16 @@ ssize_t esp_info_save(const char *key, const void *value, size_t length)
     /**
      * Reduce the number of flash writes
      */
-    char *tmp = (char *)malloc(length);
+    char *tmp = (char *)alink_malloc(length);
     ret = nvs_get_blob(handle, key, tmp, &length);
 
     if ((ret == ESP_OK) && !memcmp(tmp, value, length)) {
-        free(tmp);
+        alink_free(tmp);
+        nvs_close(handle);
         return length;
     }
 
-    free(tmp);
+    alink_free(tmp);
 
     ret = nvs_set_blob(handle, key, value, length);
     nvs_commit(handle);
@@ -89,9 +90,9 @@ ssize_t esp_info_save(const char *key, const void *value, size_t length)
 
 ssize_t esp_info_load(const char *key, void *value, size_t length)
 {
-    ALINK_PARAM_CHECK(!key);
-    ALINK_PARAM_CHECK(!value);
-    ALINK_PARAM_CHECK(length <= 0);
+    ALINK_PARAM_CHECK(key);
+    ALINK_PARAM_CHECK(value);
+    ALINK_PARAM_CHECK(length > 0);
 
     alink_err_t ret   = -1;
     nvs_handle handle = 0;

@@ -26,6 +26,7 @@
 #include "esp_wifi.h"
 #include "esp_event_loop.h"
 #include "lwip/sockets.h"
+#include "freertos/timers.h"
 
 #include "alink_platform.h"
 #include "esp_alink.h"
@@ -90,12 +91,8 @@ void platform_awss_switch_channel(char primary_channel,
 
 static void IRAM_ATTR  wifi_sniffer_cb_(void *recv_buf, wifi_promiscuous_pkt_type_t type)
 {
-    char *buf = NULL;
-    uint16_t len = 0;
     wifi_promiscuous_pkt_t *sniffer = (wifi_promiscuous_pkt_t *)recv_buf;
-    buf = (char *)sniffer->payload;
-    len = sniffer->rx_ctrl.sig_len;
-    g_sniffer_cb(buf, len, AWSS_LINK_TYPE_NONE, 1);
+    g_sniffer_cb((char *)sniffer->payload, sniffer->rx_ctrl.sig_len, AWSS_LINK_TYPE_NONE, 1);
 }
 
 /**
@@ -106,6 +103,8 @@ static void IRAM_ATTR  wifi_sniffer_cb_(void *recv_buf, wifi_promiscuous_pkt_typ
  */
 void platform_awss_open_monitor(_IN_ platform_awss_recv_80211_frame_cb_t cb)
 {
+    ALINK_ASSERT(cb);
+
     g_sniffer_cb = cb;
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous(0));
@@ -122,6 +121,7 @@ void platform_awss_close_monitor(void)
 {
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous(0));
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(NULL));
+    ESP_ERROR_CHECK(esp_wifi_stop());
 }
 
 
@@ -134,7 +134,8 @@ int platform_wifi_get_rssi_dbm(void)
 
 char *platform_wifi_get_mac(_OUT_ char mac_str[PLATFORM_MAC_LEN])
 {
-    ALINK_PARAM_CHECK(mac_str == NULL);
+    ALINK_ASSERT(mac_str);
+
     uint8_t mac[6] = {0};
     ESP_ERROR_CHECK(esp_wifi_get_mac(ESP_IF_WIFI_STA, mac));
     snprintf(mac_str, PLATFORM_MAC_LEN, MACSTR, MAC2STR(mac));
@@ -143,49 +144,74 @@ char *platform_wifi_get_mac(_OUT_ char mac_str[PLATFORM_MAC_LEN])
 
 uint32_t platform_wifi_get_ip(_OUT_ char ip_str[PLATFORM_IP_LEN])
 {
-    ALINK_PARAM_CHECK(ip_str == NULL);
+    ALINK_PARAM_CHECK(ip_str);
+
     tcpip_adapter_ip_info_t infor;
     tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &infor);
     memcpy(ip_str, inet_ntoa(infor.ip.addr), PLATFORM_IP_LEN);
     return infor.ip.addr;
 }
 
-static alink_err_t sys_net_is_ready = ALINK_FALSE;
+static bool sys_net_is_ready = false;
 int platform_sys_net_is_ready(void)
 {
     return sys_net_is_ready;
+}
+
+static TimerHandle_t g_timer = NULL;
+static void wifi_connect_timer_cb(void *timer)
+{
+    if (!platform_sys_net_is_ready()) {
+        ESP_ERROR_CHECK(esp_wifi_disconnect());
+    }
+
+    xTimerStop(g_timer, 0);
+    xTimerDelete(g_timer, 0);
+    g_timer = NULL;
 }
 
 static SemaphoreHandle_t xSemConnet = NULL;
 static alink_err_t event_handler(void *ctx, system_event_t *event)
 {
     switch (event->event_id) {
-        case SYSTEM_EVENT_STA_START:
-            ALINK_LOGI("SYSTEM_EVENT_STA_START");
-            ESP_ERROR_CHECK(esp_wifi_connect());
-            break;
+    case SYSTEM_EVENT_STA_CONNECTED:
+        ALINK_LOGI("EVENT_STAMODE_CONNECTED");
 
-        case SYSTEM_EVENT_STA_GOT_IP:
-            sys_net_is_ready = ALINK_TRUE;
-            ALINK_LOGI("SYSTEM_EVENT_STA_GOT_IP");
-            xSemaphoreGive(xSemConnet);
-            alink_event_send(ALINK_EVENT_WIFI_CONNECTED);
-            break;
+        /*!< compatible with xiaomi company's R1C router */
+        if (!g_timer) {
+            g_timer = xTimerCreate("Timer", 4000 / portTICK_RATE_MS, false,
+                                 NULL, wifi_connect_timer_cb);
+            xTimerStart(g_timer, 0);
+        }
+        break;
 
-        case SYSTEM_EVENT_STA_DISCONNECTED:
-            ALINK_LOGI("SYSTEM_EVENT_STA_DISCONNECTED, free_heap: %d", esp_get_free_heap_size());
-            sys_net_is_ready = ALINK_FALSE;
-            alink_event_send(ALINK_EVENT_WIFI_DISCONNECTED);
-            int ret = esp_wifi_connect();
+    case SYSTEM_EVENT_STA_START:
+        ALINK_LOGI("SYSTEM_EVENT_STA_START");
+        sys_net_is_ready = false;
+        ESP_ERROR_CHECK(esp_wifi_connect());
+        break;
 
-            if (ret != ESP_OK) {
-                ALINK_LOGE("esp_wifi_connect, ret: %d", ret);
-            }
+    case SYSTEM_EVENT_STA_GOT_IP:
+        sys_net_is_ready = true;
+        ALINK_LOGI("SYSTEM_EVENT_STA_GOT_IP");
+        xSemaphoreGive(xSemConnet);
+        alink_event_send(ALINK_EVENT_WIFI_CONNECTED);
+        break;
 
-            break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+        ALINK_LOGI("SYSTEM_EVENT_STA_DISCONNECTED, free_heap: %d", esp_get_free_heap_size());
+        sys_net_is_ready = ALINK_FALSE;
+        alink_event_send(ALINK_EVENT_WIFI_DISCONNECTED);
+        int ret = esp_wifi_connect();
 
-        default:
-            break;
+        if (ret != ESP_OK) {
+            ALINK_LOGE("esp_wifi_connect, ret: %d", ret);
+        }
+
+        break;
+
+    default:
+        break;
     }
 
     return ALINK_OK;
@@ -201,38 +227,34 @@ int platform_awss_connect_ap(
     _IN_OPT_ uint8_t channel)
 {
     wifi_config_t wifi_config;
+    alink_err_t ret = 0;
 
     if (xSemConnet == NULL) {
         xSemConnet = xSemaphoreCreateBinary();
         esp_event_loop_set_cb(event_handler, NULL);
+    } else {
+        ESP_ERROR_CHECK(esp_wifi_stop());
     }
 
-    ESP_ERROR_CHECK(esp_wifi_stop());
     ESP_ERROR_CHECK(esp_wifi_get_config(WIFI_IF_STA, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+
     memcpy(wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
     memcpy(wifi_config.sta.password, passwd, sizeof(wifi_config.sta.password));
     ALINK_LOGI("ap ssid: %s, password: %s", wifi_config.sta.ssid, wifi_config.sta.password);
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    BaseType_t err = xSemaphoreTake(xSemConnet, connection_timeout_ms / portTICK_RATE_MS);
-
-    if (err != pdTRUE) {
-        ESP_ERROR_CHECK(esp_wifi_disconnect());
-    }
-
-    ALINK_ERROR_CHECK(err != pdTRUE, ALINK_ERR, "xSemaphoreTake ret:%x wait: %d", err, connection_timeout_ms);
+    ret = xSemaphoreTake(xSemConnet, connection_timeout_ms / portTICK_RATE_MS);
+    ALINK_ERROR_CHECK(ret == pdFALSE, ALINK_ERR, "xSemaphoreTake, wait: %d", connection_timeout_ms);
 
     if (!strcmp(ssid, "aha")) {
         return ALINK_OK;
     }
 
-    err = esp_info_save(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
-
-    if (err < 0) {
-        ALINK_LOGE("alink information save failed");
-    }
+    ret = esp_info_save(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
+    ALINK_ERROR_CHECK(ret < 0, ALINK_ERR, "alink information save failed");
 
     return ALINK_OK;
 }
@@ -253,12 +275,12 @@ int platform_awss_connect_ap(
  * @see None.
  * @note awss use this API send raw frame in wifi monitor mode & station mode
  */
-extern esp_err_t esp_wifi_80211_tx(wifi_interface_t ifx, const void *buffer, int len);
 int platform_wifi_send_80211_raw_frame(_IN_ enum platform_awss_frame_type type,
                                        _IN_ uint8_t *buffer, _IN_ int len)
 {
-    ALINK_PARAM_CHECK(!buffer);
+    ALINK_PARAM_CHECK(buffer);
 
+    extern esp_err_t esp_wifi_80211_tx(wifi_interface_t ifx, const void *buffer, int len);
     int ret = esp_wifi_80211_tx(ESP_IF_WIFI_STA, buffer, len);
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "esp_wifi_80211_tx, ret: 0x%x", ret);
 
@@ -271,9 +293,7 @@ static uint8_t g_vendor_oui[3];
 static void ssc_vnd_filter_cb(void *ctx, wifi_vendor_ie_type_t type,
                               const uint8_t sa[6], const vendor_ie_data_t *vnd_ie, int rssi)
 {
-    ALINK_PARAM_CHECK(!vnd_ie);
-
-    if(type != WIFI_VND_IE_TYPE_BEACON && type != WIFI_VND_IE_TYPE_PROBE_REQ){
+    if (type != WIFI_VND_IE_TYPE_BEACON && type != WIFI_VND_IE_TYPE_PROBE_REQ) {
         ALINK_LOGV("not support type: %d", type);
         return;
     }
@@ -283,7 +303,7 @@ static void ssc_vnd_filter_cb(void *ctx, wifi_vendor_ie_type_t type,
         return;
     }
 
-    if (memcmp(vnd_ie->vendor_oui, g_vendor_oui, sizeof(g_vendor_oui)) == 0) {
+    if (!memcmp(vnd_ie->vendor_oui, g_vendor_oui, sizeof(g_vendor_oui))) {
         g_callback((uint8_t *)(vnd_ie), vnd_ie->length + 2, rssi, 1);
     }
 }
@@ -310,10 +330,12 @@ int platform_wifi_enable_mgnt_frame_filter(_IN_ uint32_t filter_mask,
         _IN_OPT_ uint8_t vendor_oui[3], _IN_
         platform_wifi_mgnt_frame_cb_t callback)
 {
-
-    alink_err_t ret = 0;
+    ALINK_PARAM_CHECK(vendor_oui);
+    ALINK_PARAM_CHECK(callback);
     ALINK_ERROR_CHECK(filter_mask != (FRAME_PROBE_REQ_MASK | FRAME_BEACON_MASK),
                       -2, "frame is no support, frame: 0x%x", filter_mask);
+
+    alink_err_t ret = 0;
     g_callback = callback;
     memcpy(g_vendor_oui, vendor_oui, sizeof(g_vendor_oui));
 
@@ -344,14 +366,14 @@ int platform_wifi_scan(platform_wifi_scan_result_cb_t cb)
 {
     uint16_t wifi_ap_num = 0;
     wifi_ap_record_t *ap_info = NULL;
-
     wifi_scan_config_t scan_config;
+
     memset(&scan_config, 0, sizeof(scan_config));
     ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&wifi_ap_num));
 
     ALINK_LOGI("ap number: %d", wifi_ap_num);
-    ap_info = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * wifi_ap_num);
+    ap_info = (wifi_ap_record_t *)alink_malloc(sizeof(wifi_ap_record_t) * wifi_ap_num);
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&wifi_ap_num, ap_info));
 
     for (int i = 0; i < wifi_ap_num; ++i) {
@@ -360,11 +382,11 @@ int platform_wifi_scan(platform_wifi_scan_result_cb_t cb)
     }
 
     ESP_ERROR_CHECK(esp_wifi_scan_stop());
-    free(ap_info);
+
+    alink_free(ap_info);
     return ALINK_OK;
 }
 
-#define AES_BLOCK_SIZE 16
 /**
  * @brief initialize AES struct.
  *
@@ -374,6 +396,8 @@ int platform_wifi_scan(platform_wifi_scan_result_cb_t cb)
  * @return AES128_t
  */
 #include "mbedtls/aes.h"
+#define AES_BLOCK_SIZE 16
+
 typedef struct {
     mbedtls_aes_context ctx;
     uint8_t iv[16];
@@ -384,12 +408,12 @@ p_aes128_t platform_aes128_init(
     _IN_ const uint8_t *iv,
     _IN_ AES_DIR_t dir)
 {
-    ALINK_PARAM_CHECK(!key);
-    ALINK_PARAM_CHECK(!iv);
+    ALINK_ASSERT(key);
+    ALINK_ASSERT(iv);
 
     alink_err_t ret = 0;
     platform_aes_t *p_aes128 = NULL;
-    p_aes128 = (platform_aes_t *)calloc(1, sizeof(platform_aes_t));
+    p_aes128 = (platform_aes_t *)alink_calloc(1, sizeof(platform_aes_t));
     ALINK_ERROR_CHECK(!p_aes128, NULL, "calloc");
 
     mbedtls_aes_init(&p_aes128->ctx);
@@ -401,7 +425,7 @@ p_aes128_t platform_aes128_init(
     }
 
     if (ret != ALINK_OK) {
-        free(p_aes128);
+        alink_free(p_aes128);
     }
 
     ALINK_ERROR_CHECK(ret != ALINK_OK, NULL, "mbedtls_aes_setkey_enc");
@@ -424,9 +448,11 @@ p_aes128_t platform_aes128_init(
  */
 int platform_aes128_destroy(_IN_ p_aes128_t aes)
 {
-    ALINK_PARAM_CHECK(!aes);
+    ALINK_PARAM_CHECK(aes);
+
     mbedtls_aes_free(&((platform_aes_t *)aes)->ctx);
-    free(aes);
+    alink_free(aes);
+
     return ALINK_OK;
 }
 
@@ -451,9 +477,9 @@ int platform_aes128_cbc_encrypt(
     _IN_ size_t blockNum,
     _OUT_ void *dst)
 {
-    ALINK_PARAM_CHECK(!aes);
-    ALINK_PARAM_CHECK(!src);
-    ALINK_PARAM_CHECK(!dst);
+    ALINK_PARAM_CHECK(aes);
+    ALINK_PARAM_CHECK(src);
+    ALINK_PARAM_CHECK(dst);
 
     alink_err_t ret = 0;
     platform_aes_t *p_aes128 = (platform_aes_t *)aes;
@@ -490,9 +516,9 @@ int platform_aes128_cbc_decrypt(
     _IN_ size_t blockNum,
     _OUT_ void *dst)
 {
-    ALINK_PARAM_CHECK(!aes);
-    ALINK_PARAM_CHECK(!src);
-    ALINK_PARAM_CHECK(!dst);
+    ALINK_PARAM_CHECK(aes);
+    ALINK_PARAM_CHECK(src);
+    ALINK_PARAM_CHECK(dst);
 
     alink_err_t ret = 0;
     platform_aes_t *p_aes128 = (platform_aes_t *)aes;
@@ -531,6 +557,8 @@ int platform_wifi_get_ap_info(
 {
     alink_err_t ret = 0;
     wifi_ap_record_t ap_info;
+    wifi_config_t wifi_config;
+
     memset(&ap_info, 0, sizeof(wifi_ap_record_t));
     ESP_ERROR_CHECK(esp_wifi_sta_get_ap_info(&ap_info));
 
@@ -546,7 +574,6 @@ int platform_wifi_get_ap_info(
         return ALINK_OK;
     }
 
-    wifi_config_t wifi_config;
     ret = esp_info_load(NVS_KEY_WIFI_CONFIG, &wifi_config, sizeof(wifi_config_t));
 
     if (ret > 0 && !memcmp(ap_info.ssid, wifi_config.sta.ssid, strlen((char *)ap_info.ssid))) {

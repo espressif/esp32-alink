@@ -25,7 +25,6 @@
  * PURPOSE, TITLE, AND NONINFRINGEMENT.
  */
 
-/* header file for alink wifi device */
 #ifndef _ALINK_EXPORT_H_
 #define _ALINK_EXPORT_H_
 

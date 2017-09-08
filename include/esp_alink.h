@@ -144,6 +144,15 @@ typedef struct alink_product {
     const char *secret_device;
 } alink_product_t;
 
+#define alink_malloc(num_bytes) ({void *ptr = malloc(num_bytes); \
+        ALINK_LOGV("malloc size: %d, ptr: %p, heap free: %d", num_bytes, ptr, esp_get_free_heap_size()); ptr;})
+
+#define alink_calloc(n, size) ({void *ptr = calloc(n, size); \
+        ALINK_LOGV("calloc size: %d, ptr: %p, heap free: %d", n * size, ptr, esp_get_free_heap_size()); ptr;})
+
+#define alink_free(arg) {if(arg){ free(arg); \
+        ALINK_LOGV("free ptr: %p, heap free: %d", arg, esp_get_free_heap_size()); arg = NULL;}}while(0)
+
 /**
  * @brief  Application specified event callback function
  *
