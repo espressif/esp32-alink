@@ -40,7 +40,7 @@ static void *alink_ssl_mutex = NULL;
 
 void *platform_ssl_connect(_IN_ void *tcp_fd, _IN_ const char *server_cert, _IN_ int server_cert_len)
 {
-    ALINK_PARAM_CHECK(server_cert == NULL);
+    ALINK_ASSERT(server_cert);
 
     if (platform_sys_net_is_ready() == ALINK_FALSE) {
         ALINK_LOGW("wifi disconnect");
@@ -58,53 +58,30 @@ void *platform_ssl_connect(_IN_ void *tcp_fd, _IN_ const char *server_cert, _IN_
     platform_mutex_lock(alink_ssl_mutex);
 
     ctx = SSL_CTX_new(TLSv1_1_client_method());
+    ALINK_ERROR_GOTO(!ctx, ERR_EXIT, "SSL_CTX_new, ctx: %p", ctx);
 
-    if (!ctx) {
-        ALINK_LOGE("SSL_CTX_new, ret: %p, free_heap :%u", ctx, esp_get_free_heap_size());
-        goto err_exit;
-    }
-
-    // ALINK_LOGD("set SSL context read buffer size");
-    // SSL_CTX_set_default_read_buffer_len(ctx, 2048);
     ALINK_LOGD("set SSL new");
     ssl = SSL_new(ctx);
-
-    if (!ssl) {
-        ALINK_LOGE("SSL_new, ret: %p, free_heap :%u", ssl, esp_get_free_heap_size());
-        goto err_exit;
-    }
+    ALINK_ERROR_GOTO(!ssl, ERR_EXIT, "SSL_new, ssl: %p", ssl);
 
     ALINK_LOGV("set SSL_set_fd");
     SSL_set_fd(ssl, socket);
     X509 *ca_cert = d2i_X509(NULL, (unsigned char *)server_cert, server_cert_len);
-
-    if (ca_cert == NULL) {
-        ALINK_LOGE("d2i_X509, ret: %p, free_heap :%u", ssl, esp_get_free_heap_size());
-        goto err_exit;
-    }
+    ALINK_ERROR_GOTO(!ca_cert, ERR_EXIT, "d2i_X509, ca_cert: %p", ca_cert);
 
     ALINK_LOGV("set SSL_connect");
     ret = SSL_add_client_CA(ssl, ca_cert);
-
-    if (ret != pdTRUE) {
-        ALINK_LOGE("SSL_add_client_CA, ret:%d", ret);
-        goto err_exit;
-    }
-
-    ALINK_ERROR_CHECK(ret != pdTRUE, NULL, "SSL_add_client_CA, ret:%d", ret);
+    ALINK_ERROR_GOTO(ret == pdFALSE, ERR_EXIT, "SSL_add_client_CA, ret: %d", ret);
 
     ret = SSL_connect(ssl);
-
-    if (ret != pdTRUE) {
-        ALINK_LOGE("SSL_connect, ret: %d", ret);
-        goto err_exit;
-    }
+    ALINK_ERROR_GOTO(ret == pdFALSE, ERR_EXIT, "SSL_connect, ret: %d", ret);
 
     ALINK_LOGD("set SSL_connect is successed");
     platform_mutex_unlock(alink_ssl_mutex);
+
     return ssl;
 
-err_exit:
+ERR_EXIT:
     platform_mutex_unlock(alink_ssl_mutex);
 
     if (ctx) {
@@ -121,9 +98,9 @@ err_exit:
 
 int platform_ssl_send(_IN_ void *ssl, _IN_ const char *buffer, _IN_ int length)
 {
-    ALINK_PARAM_CHECK(length <= 0);
-    ALINK_PARAM_CHECK(buffer == NULL);
-    ALINK_ERROR_CHECK(ssl == NULL, ALINK_ERR, "Parameter error, ssl:%p", ssl);
+    ALINK_PARAM_CHECK(length > 0);
+    ALINK_PARAM_CHECK(buffer);
+    ALINK_PARAM_CHECK(ssl);
 
     alink_err_t ret;
 
@@ -142,8 +119,9 @@ int platform_ssl_send(_IN_ void *ssl, _IN_ const char *buffer, _IN_ int length)
 
 int platform_ssl_recv(_IN_ void *ssl, _OUT_ char *buffer, _IN_ int length)
 {
-    ALINK_PARAM_CHECK(ssl == NULL);
-    ALINK_PARAM_CHECK(buffer == NULL);
+    ALINK_PARAM_CHECK(ssl);
+    ALINK_PARAM_CHECK(buffer);
+
     int ret = -1;
 
     if (alink_ssl_mutex == NULL) {
@@ -166,7 +144,8 @@ int platform_ssl_recv(_IN_ void *ssl, _OUT_ char *buffer, _IN_ int length)
 
 int platform_ssl_close(_IN_ void *ssl)
 {
-    ALINK_PARAM_CHECK(ssl == NULL);
+    ALINK_PARAM_CHECK(ssl);
+
     alink_err_t ret = -1;
 
     if (alink_ssl_mutex == NULL) {
@@ -176,7 +155,7 @@ int platform_ssl_close(_IN_ void *ssl)
     platform_mutex_lock(alink_ssl_mutex);
     ret = SSL_shutdown((SSL *)ssl);
 
-    if (ret != pdTRUE) {
+    if (ret == pdFALSE) {
         ALINK_LOGW("SSL_shutdown: ret:%d, ssl: %p", ret, ssl);
     }
 

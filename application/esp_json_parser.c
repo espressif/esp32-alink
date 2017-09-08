@@ -34,9 +34,9 @@ static const char *TAG = "esp_json_parser";
 
 alink_err_t __esp_json_parse(const char *json_str, const char *key, void *value, int value_type)
 {
-    ALINK_PARAM_CHECK(!json_str);
-    ALINK_PARAM_CHECK(!key);
-    ALINK_PARAM_CHECK(!value);
+    ALINK_PARAM_CHECK(json_str);
+    ALINK_PARAM_CHECK(key);
+    ALINK_PARAM_CHECK(value);
 
     cJSON *pJson = cJSON_Parse(json_str);
     ALINK_ERROR_CHECK(!pJson, ALINK_ERR, "cJSON_Parse");
@@ -48,9 +48,9 @@ alink_err_t __esp_json_parse(const char *json_str, const char *key, void *value,
         return -EINVAL;
     }
 
-    // ALINK_ERROR_CHECK(!pSub, -EINVAL, "cJSON_GetObjectItem %s", key);
-
     char *p = NULL;
+    int array_size = 0;
+    char **q = NULL;
 
     switch (value_type) {
         case 1:
@@ -84,7 +84,7 @@ alink_err_t __esp_json_parse(const char *json_str, const char *key, void *value,
                     break;
 
                 case cJSON_Object:
-                    p = cJSON_Print(pSub);
+                    p = cJSON_PrintUnformatted(pSub);
 
                     if (!p) {
                         cJSON_Delete(pJson);
@@ -93,6 +93,42 @@ alink_err_t __esp_json_parse(const char *json_str, const char *key, void *value,
                     ALINK_ERROR_CHECK(!p, -ENOMEM, "cJSON_Print");
                     memcpy(value, p, strlen(p) + 1);
                     free(p);
+                    break;
+
+                case cJSON_Array:
+                    array_size = cJSON_GetArraySize(pSub);
+                    q = (char **)value;
+
+                    for (int i = 0; i < array_size; ++i) {
+                        cJSON *item = cJSON_GetArrayItem(pSub, i);
+
+                        if (item->type == cJSON_Number) {
+                            *((int *)value + i) = cJSON_GetArrayItem(pSub, i)->valueint;
+                            continue;
+                        }
+
+                        if (item->type == cJSON_String) {
+                            cJSON_Minify(item->valuestring);
+                            *q++ = strstr(json_str, item->valuestring);
+                            continue;
+                        }
+
+                        if (item->type == cJSON_Object) {
+                            p = cJSON_PrintUnformatted(item);
+
+                            if (!p) {
+                                cJSON_Delete(pJson);
+                            }
+
+                            ALINK_ERROR_CHECK(!p, -ENOMEM, "cJSON_Print");
+                            ALINK_ASSERT(*q++ = strstr(json_str, p));
+                            free(p);
+                        }
+                    }
+
+
+                    cJSON_Delete(pJson);
+                    return array_size;
                     break;
 
                 default:
@@ -107,8 +143,8 @@ alink_err_t __esp_json_parse(const char *json_str, const char *key, void *value,
 
 ssize_t esp_json_pack_double(char *json_str, const char *key, double value)
 {
-    ALINK_PARAM_CHECK(!json_str);
-    ALINK_PARAM_CHECK(!key);
+    ALINK_PARAM_CHECK(json_str);
+    ALINK_PARAM_CHECK(key);
 
     int ret = 0;
 
@@ -130,8 +166,8 @@ ssize_t esp_json_pack_double(char *json_str, const char *key, double value)
 
 ssize_t __esp_json_pack(char *json_str, const char *key, int value, int value_type)
 {
-    ALINK_PARAM_CHECK(!json_str);
-    ALINK_PARAM_CHECK(!key);
+    ALINK_PARAM_CHECK(json_str);
+    ALINK_PARAM_CHECK(key);
 
     char identifier = '{';
 
@@ -147,7 +183,6 @@ ssize_t __esp_json_pack(char *json_str, const char *key, int value, int value_ty
     } else {
         ret = (strlen(json_str) - 1);
         json_str += ret;
-        // ALINK_ERROR_CHECK(*(json_str) != '}', -EINVAL, "json_str Not initialized to empty");
         *json_str = ',';
     }
 
@@ -194,7 +229,6 @@ ssize_t __esp_json_pack(char *json_str, const char *key, int value, int value_ty
             return ret;
     }
 
-    // printf("ret : %d, strlen: %d, json_str: %s\n", ret, (int)strlen(json_str), json_str - ret + 1);
     *(json_str + tmp) = '}';
     *(json_str + tmp + 1) = '\0';
 
@@ -202,7 +236,6 @@ ssize_t __esp_json_pack(char *json_str, const char *key, int value, int value_ty
         *(json_str + tmp) = ']';
     }
 
-    // *(json_str + ret) = 0;
     ret += tmp + 1;
     return ret;
 }

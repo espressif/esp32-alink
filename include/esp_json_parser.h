@@ -110,8 +110,8 @@ alink_err_t esp_json_pack_double(char *json_str, const char *key, double value);
 static void esp_json_test()
 {
     int ret = 0;
-    char *json_root = (char *)calloc(1, 512);
-    char *json_sub = (char *)calloc(1, 64);
+    char *json_root = (char *)alink_calloc(1, 512);
+    char *json_sub = (char *)alink_calloc(1, 64);
     int valueint = 0;
     char valuestring[20];
     double valuedouble = 0;
@@ -160,8 +160,8 @@ static void esp_json_test()
     sprintf(double_char, "%lf", valuedouble);
     printf("key6: %s\n", double_char);
 
-    free(json_root);
-    free(json_sub);
+    alink_free(json_root);
+    alink_free(json_sub);
 }
  */
 

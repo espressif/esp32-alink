@@ -57,8 +57,9 @@ alink_err_t alink_update_router()
         ALINK_LOGD("esp_info_erase, ret: %d", ret);
     }
 
-    ALINK_LOGI("The system is about to be restarted");
+    ALINK_LOGW("The system is about to be restarted");
     esp_restart();
+
     return ALINK_OK;
 }
 
@@ -76,7 +77,6 @@ static alink_err_t alink_connect_ap()
         }
     }
 
-    alink_err_t alink_event_send(alink_event_t event);
     alink_event_send(ALINK_EVENT_CONFIG_NETWORK);
     ALINK_LOGI("*********************************");
     ALINK_LOGI("*    ENTER SAMARTCONFIG MODE    *");
@@ -84,7 +84,8 @@ static alink_err_t alink_connect_ap()
     ret = awss_start();
 
     if (ret != ALINK_OK) {
-        ALINK_LOGI("awss_start is err ret: %d", ret);
+        ALINK_LOGW("awss_start is err");
+        ALINK_LOGW("The system is about to be restarted");
         esp_restart();
     }
 
@@ -124,7 +125,7 @@ alink_err_t alink_factory_setting()
     ALINK_LOGI("reset user account binding");
     alink_factory_reset();
 
-    ALINK_LOGI("The system is about to be restarted");
+    ALINK_LOGW("The system is about to be restarted");
     esp_restart();
 }
 
@@ -134,21 +135,21 @@ alink_err_t alink_factory_setting()
 #define TIME_STR_LEN    (32)
 alink_err_t alink_get_time(unsigned int *utc_time)
 {
+    ALINK_PARAM_CHECK(utc_time);
+
     char buf[TIME_STR_LEN] = { 0 }, *attr_str;
     int size = TIME_STR_LEN, attr_len = 0;
-    int ret;
 
-    ret = alink_query("getAlinkTime", "{}", buf, &size);
-
-    if (!ret) {
-        attr_str = json_get_value_by_name(buf, size, "time", &attr_len, NULL);
-
-        if (attr_str && utc_time) {
-            sscanf(attr_str, "%u", utc_time);
-        }
+    if (!alink_query("getAlinkTime", "{}", buf, &size)) {
+        return ALINK_ERR;
     }
 
-    return ret;
+    attr_str = json_get_value_by_name(buf, size, "time", &attr_len, NULL);
+    ALINK_ERROR_CHECK(!attr_str, ALINK_ERR, "json_get_value_by_name, ret: %p", attr_str);
+
+    *utc_time = atoi(attr_str);
+
+    return ALINK_OK;
 }
 
 /**
@@ -158,7 +159,6 @@ alink_err_t alink_get_time(unsigned int *utc_time)
 static xQueueHandle xQueueEvent = NULL;
 static void alink_event_loop_task(void *pvParameters)
 {
-    alink_err_t ret = ALINK_OK;
     alink_event_cb_t s_event_handler_cb = (alink_event_cb_t)pvParameters;
 
     for (;;) {
@@ -172,9 +172,7 @@ static void alink_event_loop_task(void *pvParameters)
             continue;
         }
 
-        ret = (*s_event_handler_cb)(event);;
-
-        if (ret != ALINK_OK) {
+        if ((*s_event_handler_cb)(event) < 0) {
             ALINK_LOGW("Event handling failed");
         }
     }
@@ -189,7 +187,8 @@ alink_err_t alink_event_send(alink_event_t event)
     }
 
     alink_err_t ret = xQueueSend(xQueueEvent, &event, 0);
-    ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "xQueueSendToBack fail!")
+    ALINK_ERROR_CHECK(ret != pdTRUE, ALINK_ERR, "xQueueSendToBack fail!");
+
     return ALINK_OK;
 }
 
@@ -201,8 +200,8 @@ extern void alink_trans_destroy();
 alink_err_t alink_init(_IN_ const void *product_info,
                        _IN_ const alink_event_cb_t event_handler_cb)
 {
-    ALINK_PARAM_CHECK(!product_info);
-    ALINK_PARAM_CHECK(!event_handler_cb);
+    ALINK_PARAM_CHECK(product_info);
+    ALINK_PARAM_CHECK(event_handler_cb);
 
     alink_err_t ret = ALINK_OK;
 
@@ -226,10 +225,6 @@ alink_err_t alink_init(_IN_ const void *product_info,
     }
 
     ALINK_ERROR_CHECK(ret != ALINK_OK, ALINK_ERR, "alink_trans_init :%d", ret);
-
-    // unsigned int alink_server_time = 0;
-    // ret = alink_get_time(&alink_server_time);
-    // ALINK_LOGD("ret: %d,get alink utc time: %d\n", ret, alink_server_time);
 
     return ALINK_OK;
 }
