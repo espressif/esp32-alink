@@ -99,6 +99,13 @@ config ALINK_MODULE_NAME
         Before modifying this parameter, make sure that the device is
         unbinded with Ali cloud server
 
+config DEVICE_ID_ADRR
+    int "Device id storage address"
+    default 3211264
+    depends on ALINK_ENABLE
+    help
+        Device id storage address
+
 choice LOG_ALINK_LEVEL
     bool "Configure the alink application layer's log"
     default LOG_ALINK_LEVEL_DEBUG
