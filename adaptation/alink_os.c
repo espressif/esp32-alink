@@ -50,6 +50,11 @@ static task_infor_t task_infor[] = {
 
 void platform_printf(const char *fmt, ...)
 {
+    /* Clear sniffer process information */
+    if (!strncmp(fmt, "[%d] ssid:%s, mac:", 18) || !strncmp(fmt, "channel %d", 10)) {
+        return;
+    }
+
     va_list args;
     va_start(args, fmt);
     vprintf(fmt, args);
@@ -219,7 +224,9 @@ int platform_config_read(_OUT_ char *buffer, _IN_ int length)
     ALINK_PARAM_CHECK(length > 0);
     ALINK_LOGV("buffer: %p, length: %d", buffer, length);
 
-    return esp_info_load(ALINK_CONFIG_KEY, buffer, length);
+    alink_err_t ret = esp_info_load(ALINK_CONFIG_KEY, buffer, length);
+
+    return ret > 0 ? ALINK_OK : ALINK_ERR;
 }
 
 int platform_config_write(_IN_ const char *buffer, _IN_ int length)
@@ -228,7 +235,9 @@ int platform_config_write(_IN_ const char *buffer, _IN_ int length)
     ALINK_PARAM_CHECK(length > 0);
     ALINK_LOGV("buffer: %p, length: %d", buffer, length);
 
-    return esp_info_save(ALINK_CONFIG_KEY, buffer, length);
+    alink_err_t ret = esp_info_save(ALINK_CONFIG_KEY, buffer, length);
+
+    return ret > 0 ? ALINK_OK : ALINK_ERR;
 }
 
 
